@@ -333,21 +333,29 @@ const thermalInertia = computed(() => measurements.value?.thermal_inertia ?? the
 const temperatureContext = computed(() => measurements.value?.temperature_context ?? null)
 const footprint = computed(() => ((currentQuery()?.info as any)?.footprint_m ?? 250))
 
+async function reportJson(url: string) {
+  const response = await fetch(url)
+  if (response.status === 401) throw new Error('Backend authentication failed (401). Update the server-side API token and redeploy.')
+  if (response.status === 503) throw new Error('Backend connection is not configured or a required service is unavailable (503).')
+  if (!response.ok) throw new Error(`Backend request failed (HTTP ${response.status}).`)
+  return response.json()
+}
+
 async function loadReport() {
   try {
-    const runs: { id: string }[] = await (await fetch(`/api/analogs/runs`)).json()
+    const runs: { id: string }[] = await reportJson('/api/analogs/runs')
     const pick = (...ids: string[]) => ids.map(id => runs.find(r => r.id === id)).find(Boolean)
     const run = pick('mars_judge_env_global', 'mars_judge_screen_gated_veg_div2_env', 'mars_judge_global', 'mars_judge_screen_gated_veg_div2')
       ?? runs.find((r) => r.id.startsWith('mars_judge') && !r.id.includes('catalog_source'))
     if (!run) { apiStatus.value = 'No analog run found'; return }
-    reports.value.mars = { runId: run.id, queries: await (await fetch(reportUrl(run.id))).json() }
+    reports.value.mars = { runId: run.id, queries: await reportJson(reportUrl(run.id)) }
     const moon = pick('moon_judge_env_global', 'moon_judge_screen_gated_veg_div2_env', 'moon_judge_global', 'moon_judge_screen_gated_veg_div2')
-    if (moon) reports.value.moon = { runId: moon.id, queries: await (await fetch(reportUrl(moon.id))).json() }
+    if (moon) reports.value.moon = { runId: moon.id, queries: await reportJson(reportUrl(moon.id)) }
     const supp = runs.find((r) => r.id === 'moon_judge_screen_gated_veg_div2_supp')
-    if (supp) reports.value.moon_supp = { runId: supp.id, queries: await (await fetch(reportUrl(supp.id))).json() }
+    if (supp) reports.value.moon_supp = { runId: supp.id, queries: await reportJson(reportUrl(supp.id)) }
     useReport(currentPlanet.value)
   } catch (e) {
-    apiStatus.value = 'Backend not reachable (start the FastAPI server)'
+    apiStatus.value = e instanceof Error ? e.message : 'Backend request failed.'
   }
 }
 
