@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "retrieved_on": "2026-11-14",
+  "coordinate_reference": "WGS84 geographic latitude/longitude; representative populated-place point, not facility coordinates",
+  "source": "https://download.geonames.org/export/dump/cities1000.zip",
+  "attribution": "GeoNames, CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "cities": [
+    {
+      "id": "geonames-4140963",
+      "name": "Washington, D.C.",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "DC",
+      "lat": 38.89511,
+      "lon": -77.03637,
+      "geoname_id": 4140963,
+      "coordinate_source": "https://www.geonames.org/4140963/",
+      "association": "NASA Headquarters",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Washington"
+      ]
+    },
+    {
+      "id": "geonames-4699066",
+      "name": "Houston",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "TX",
+      "lat": 29.76328,
+      "lon": -95.36327,
+      "geoname_id": 4699066,
+      "coordinate_source": "https://www.geonames.org/4699066/",
+      "association": "NASA Johnson Space Center",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Houston"
+      ]
+    },
+    {
+      "id": "geonames-4068590",
+      "name": "Huntsville",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "AL",
+      "lat": 34.7304,
+      "lon": -86.58594,
+      "geoname_id": 4068590,
+      "coordinate_source": "https://www.geonames.org/4068590/",
+      "association": "NASA Marshall Space Flight Center",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Huntsville"
+      ]
+    },
+    {
+      "id": "geonames-5381396",
+      "name": "Pasadena",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "CA",
+      "lat": 34.14778,
+      "lon": -118.14452,
+      "geoname_id": 5381396,
+      "coordinate_source": "https://www.geonames.org/5381396/",
+      "association": "NASA Jet Propulsion Laboratory",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Pasadena"
+      ]
+    },
+    {
+      "id": "geonames-5375480",
+      "name": "Mountain View",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "CA",
+      "lat": 37.38605,
+      "lon": -122.08385,
+      "geoname_id": 5375480,
+      "coordinate_source": "https://www.geonames.org/5375480/",
+      "association": "NASA Ames, nearby Moffett Field",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Mountain View"
+      ]
+    },
+    {
+      "id": "geonames-4356847",
+      "name": "Greenbelt",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "MD",
+      "lat": 39.00455,
+      "lon": -76.87553,
+      "geoname_id": 4356847,
+      "coordinate_source": "https://www.geonames.org/4356847/",
+      "association": "NASA Goddard Space Flight Center",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Greenbelt"
+      ]
+    },
+    {
+      "id": "geonames-5150529",
+      "name": "Cleveland",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "OH",
+      "lat": 41.4995,
+      "lon": -81.69541,
+      "geoname_id": 5150529,
+      "coordinate_source": "https://www.geonames.org/5150529/",
+      "association": "NASA Glenn Research Center",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Cleveland"
+      ]
+    },
+    {
+      "id": "geonames-4762894",
+      "name": "Hampton",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "VA",
+      "lat": 37.02987,
+      "lon": -76.34522,
+      "geoname_id": 4762894,
+      "coordinate_source": "https://www.geonames.org/4762894/",
+      "association": "NASA Langley Research Center",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Hampton"
+      ]
+    },
+    {
+      "id": "geonames-4175437",
+      "name": "Titusville",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "FL",
+      "lat": 28.61222,
+      "lon": -80.80755,
+      "geoname_id": 4175437,
+      "coordinate_source": "https://www.geonames.org/4175437/",
+      "association": "Space Coast city near NASA Kennedy Space Center",
+      "association_source": "https://www.nasa.gov/centers-and-facilities/",
+      "aliases": [
+        "Titusville"
+      ]
+    },
+    {
+      "id": "geonames-5475352",
+      "name": "Las Cruces",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "NM",
+      "lat": 32.31232,
+      "lon": -106.77834,
+      "geoname_id": 5475352,
+      "coordinate_source": "https://www.geonames.org/5475352/",
+      "association": "NASA White Sands Test Facility, nearby",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Las Cruces"
+      ]
+    },
+    {
+      "id": "geonames-4805404",
+      "name": "Fairmont",
+      "country": "United States",
+      "country_code": "US",
+      "region_code": "WV",
+      "lat": 39.48508,
+      "lon": -80.14258,
+      "geoname_id": 4805404,
+      "coordinate_source": "https://www.geonames.org/4805404/",
+      "association": "NASA Katherine Johnson IV&V Facility",
+      "association_source": "https://science.nasa.gov/about-us/nasa-centers/",
+      "aliases": [
+        "Fairmont"
+      ]
+    },
+    {
+      "id": "geonames-2988507",
+      "name": "Paris",
+      "country": "France",
+      "country_code": "FR",
+      "region_code": "11",
+      "lat": 48.85341,
+      "lon": 2.3488,
+      "geoname_id": 2988507,
+      "coordinate_source": "https://www.geonames.org/2988507/",
+      "association": "ESA Headquarters",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Establishments_and_facilities",
+      "aliases": [
+        "Paris"
+      ]
+    },
+    {
+      "id": "geonames-2749812",
+      "name": "Noordwijk",
+      "country": "Netherlands",
+      "country_code": "NL",
+      "region_code": "11",
+      "lat": 52.234,
+      "lon": 4.44474,
+      "geoname_id": 2749812,
+      "coordinate_source": "https://www.geonames.org/2749812/",
+      "association": "ESA ESTEC",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Establishments_and_facilities",
+      "aliases": [
+        "Noordwijk-Binnen"
+      ]
+    },
+    {
+      "id": "geonames-2938913",
+      "name": "Darmstadt",
+      "country": "Germany",
+      "country_code": "DE",
+      "region_code": "05",
+      "lat": 49.87167,
+      "lon": 8.65027,
+      "geoname_id": 2938913,
+      "coordinate_source": "https://www.geonames.org/2938913/",
+      "association": "ESA ESOC",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Establishments_and_facilities",
+      "aliases": [
+        "Darmstadt"
+      ]
+    },
+    {
+      "id": "geonames-2886242",
+      "name": "Cologne",
+      "country": "Germany",
+      "country_code": "DE",
+      "region_code": "07",
+      "lat": 50.93333,
+      "lon": 6.95,
+      "geoname_id": 2886242,
+      "coordinate_source": "https://www.geonames.org/2886242/",
+      "association": "ESA European Astronaut Centre",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Establishments_and_facilities",
+      "aliases": [
+        "Köln",
+        "Koeln"
+      ]
+    },
+    {
+      "id": "geonames-3176589",
+      "name": "Frascati",
+      "country": "Italy",
+      "country_code": "IT",
+      "region_code": "07",
+      "lat": 41.8091,
+      "lon": 12.67942,
+      "geoname_id": 3176589,
+      "coordinate_source": "https://www.geonames.org/3176589/",
+      "association": "ESA ESRIN",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Establishments_and_facilities",
+      "aliases": [
+        "Frascati"
+      ]
+    },
+    {
+      "id": "geonames-3105247",
+      "name": "Villanueva de la Cañada",
+      "country": "Spain",
+      "country_code": "ES",
+      "region_code": "29",
+      "lat": 40.44689,
+      "lon": -4.00428,
+      "geoname_id": 3105247,
+      "coordinate_source": "https://www.geonames.org/3105247/",
+      "association": "ESA ESAC, Madrid region",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Establishments_and_facilities",
+      "aliases": [
+        "Villanueva de la Cañada",
+        "Villanueva de la Canada",
+        "Madrid"
+      ]
+    },
+    {
+      "id": "geonames-2647385",
+      "name": "Harwell",
+      "country": "United Kingdom",
+      "country_code": "GB",
+      "region_code": "ENG",
+      "lat": 51.59947,
+      "lon": -1.29175,
+      "geoname_id": 2647385,
+      "coordinate_source": "https://www.geonames.org/2647385/",
+      "association": "ESA ECSAT, nearby Harwell Campus",
+      "association_source": "https://www.esa.int/About_Us/Corporate_news/Where_to_find_ESA_ECSAT",
+      "aliases": [
+        "Harwell"
+      ]
+    },
+    {
+      "id": "geonames-2972315",
+      "name": "Toulouse",
+      "country": "France",
+      "country_code": "FR",
+      "region_code": "76",
+      "lat": 43.60426,
+      "lon": 1.44367,
+      "geoname_id": 2972315,
+      "coordinate_source": "https://www.geonames.org/2972315/",
+      "association": "CNES Toulouse Space Centre",
+      "association_source": "https://cnes.fr/etablissements",
+      "aliases": [
+        "Toulouse"
+      ]
+    },
+    {
+      "id": "geonames-2944388",
+      "name": "Bremen",
+      "country": "Germany",
+      "country_code": "DE",
+      "region_code": "03",
+      "lat": 53.07582,
+      "lon": 8.80717,
+      "geoname_id": 2944388,
+      "coordinate_source": "https://www.geonames.org/2944388/",
+      "association": "DLR Institute of Space Systems",
+      "association_source": "https://www.dlr.de/en/dlr/locations-and-offices/bremen",
+      "aliases": [
+        "Bremen"
+      ]
+    },
+    {
+      "id": "geonames-1850147",
+      "name": "Tokyo",
+      "country": "Japan",
+      "country_code": "JP",
+      "region_code": "40",
+      "lat": 35.6895,
+      "lon": 139.69171,
+      "geoname_id": 1850147,
+      "coordinate_source": "https://www.geonames.org/1850147/",
+      "association": "JAXA Tokyo Office",
+      "association_source": "https://global.jaxa.jp/about/centers/",
+      "aliases": [
+        "Tokyo"
+      ]
+    },
+    {
+      "id": "geonames-2110681",
+      "name": "Tsukuba",
+      "country": "Japan",
+      "country_code": "JP",
+      "region_code": "14",
+      "lat": 36.08333,
+      "lon": 140.11667,
+      "geoname_id": 2110681,
+      "coordinate_source": "https://www.geonames.org/2110681/",
+      "association": "JAXA Tsukuba Space Center",
+      "association_source": "https://global.jaxa.jp/about/centers/",
+      "aliases": [
+        "Tsukuba"
+      ]
+    },
+    {
+      "id": "geonames-11611609",
+      "name": "Sagamihara",
+      "country": "Japan",
+      "country_code": "JP",
+      "region_code": "19",
+      "lat": 35.56707,
+      "lon": 139.24167,
+      "geoname_id": 11611609,
+      "coordinate_source": "https://www.geonames.org/11611609/",
+      "association": "JAXA Sagamihara Campus",
+      "association_source": "https://global.jaxa.jp/about/centers/",
+      "aliases": [
+        "Sagamihara"
+      ]
+    },
+    {
+      "id": "geonames-1277333",
+      "name": "Bengaluru",
+      "country": "India",
+      "country_code": "IN",
+      "region_code": "19",
+      "lat": 12.97194,
+      "lon": 77.59369,
+      "geoname_id": 1277333,
+      "coordinate_source": "https://www.geonames.org/1277333/",
+      "association": "ISRO Headquarters / U R Rao Satellite Centre",
+      "association_source": "https://www.isro.gov.in/ISRO_EN/isro_centre.html",
+      "aliases": [
+        "Bengaluru",
+        "Bangalore"
+      ]
+    },
+    {
+      "id": "geonames-1254163",
+      "name": "Thiruvananthapuram",
+      "country": "India",
+      "country_code": "IN",
+      "region_code": "13",
+      "lat": 8.4855,
+      "lon": 76.94924,
+      "geoname_id": 1254163,
+      "coordinate_source": "https://www.geonames.org/1254163/",
+      "association": "ISRO Vikram Sarabhai Space Centre",
+      "association_source": "https://www.isro.gov.in/ISRO_EN/isro_centre.html",
+      "aliases": [
+        "Thiruvananthapuram"
+      ]
+    },
+    {
+      "id": "geonames-1279233",
+      "name": "Ahmedabad",
+      "country": "India",
+      "country_code": "IN",
+      "region_code": "09",
+      "lat": 23.02579,
+      "lon": 72.58727,
+      "geoname_id": 1279233,
+      "coordinate_source": "https://www.geonames.org/1279233/",
+      "association": "ISRO Space Applications Centre",
+      "association_source": "https://www.isro.gov.in/ISRO_EN/isro_centre.html",
+      "aliases": [
+        "Ahmedabad"
+      ]
+    },
+    {
+      "id": "geonames-6059891",
+      "name": "Longueuil",
+      "country": "Canada",
+      "country_code": "CA",
+      "region_code": "10",
+      "lat": 45.5152,
+      "lon": -73.46818,
+      "geoname_id": 6059891,
+      "coordinate_source": "https://www.geonames.org/6059891/",
+      "association": "Canadian Space Agency Headquarters",
+      "association_source": "https://www.asc-csa.gc.ca/eng/contact.asp?wbdisable=true",
+      "aliases": [
+        "Longueuil"
+      ]
+    },
+    {
+      "id": "geonames-1816670",
+      "name": "Beijing",
+      "country": "China",
+      "country_code": "CN",
+      "region_code": "22",
+      "lat": 39.9075,
+      "lon": 116.39723,
+      "geoname_id": 1816670,
+      "coordinate_source": "https://www.geonames.org/1816670/",
+      "association": "National Space Science Center, CAS",
+      "association_source": "https://english.nssc.cas.cn/contact/",
+      "aliases": [
+        "Beijing"
+      ]
+    },
+    {
+      "id": "geonames-1581130",
+      "name": "Hanoi",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "region_code": "01",
+      "lat": 21.0245,
+      "lon": 105.84117,
+      "geoname_id": 1581130,
+      "coordinate_source": "https://www.geonames.org/1581130/",
+      "association": "Additional location requested by users",
+      "association_source": null,
+      "aliases": [
+        "Hanoi",
+        "Ha Noi",
+        "Hà Nội",
+        "Vietnam"
+      ]
+    },
+    {
+      "id": "geonames-1566083",
+      "name": "Ho Chi Minh City",
+      "country": "Vietnam",
+      "country_code": "VN",
+      "region_code": "79",
+      "lat": 10.82302,
+      "lon": 106.62965,
+      "geoname_id": 1566083,
+      "coordinate_source": "https://www.geonames.org/1566083/",
+      "association": "Additional location requested by users",
+      "association_source": null,
+      "aliases": [
+        "Ho Chi Minh City",
+        "TP.HCM",
+        "TP HCM",
+        "HCM",
+        "Saigon",
+        "Sài Gòn",
+        "Vietnam"
+      ]
+    }
+  ]
+}

@@ -2,9 +2,15 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import Globe, { type GlobeInstance } from 'globe.gl'
 import * as THREE from 'three'
-import { globePolygonGeometry } from '../globeGeometry'
-import planetaryCatalog from '../data/planet_sites.json'
-import earthResearch from '../data/earth_region_additions.json'
+import CandidateComparison from './CandidateComparison.vue'
+import RankingExplanation from './RankingExplanation.vue'
+import LunarLightingPanel from './LunarLightingPanel.vue'
+import BaseCavePanel from './BaseCavePanel.vue'
+import { lightingDate, type LightingPlan, type LightingSchedule } from '../lightingPlan'
+import { cityForSetup, type MissionSetup } from '../missionSetup'
+
+const props = defineProps<{ setup: MissionSetup }>()
+const originCity = computed(() => cityForSetup(props.setup))
 
 const BASE = import.meta.env.BASE_URL
 
@@ -12,8 +18,66 @@ export type PlanetKey = 'moon' | 'mars'
 export type ViewMode = 'globe' | 'roi'
 export type RoiLayer = 'optical' | 'slope' | 'thermal'
 
-const currentPlanet = ref<PlanetKey>('moon')
+const currentPlanet = ref<PlanetKey>(props.setup.body)
 const fullscreenPane = ref<'none' | 'left' | 'right'>('none')
+const splitViewport = ref<HTMLElement | null>(null)
+const leftPanePercent = ref(50)
+const collapsedPane = ref<'none' | 'left' | 'right'>('none')
+const draggingDivider = ref(false)
+let dividerSnapTimer: ReturnType<typeof setTimeout> | undefined
+let stopDividerDrag: (() => void) | undefined
+function beginDividerDrag(event: PointerEvent) {
+  if (event.button !== 0 || !splitViewport.value) return
+  event.preventDefault()
+  clearTimeout(dividerSnapTimer)
+  const previousCollapsed = collapsedPane.value
+  draggingDivider.value = true
+  if (previousCollapsed !== 'none') {
+    leftPanePercent.value = previousCollapsed === 'left' ? 0 : 100
+    collapsedPane.value = 'none'
+  }
+  const move = (e: PointerEvent) => {
+    const rect = splitViewport.value?.getBoundingClientRect()
+    if (rect) leftPanePercent.value = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width * 100))
+  }
+  const stop = () => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', stop)
+    window.removeEventListener('pointercancel', stop)
+    stopDividerDrag = undefined
+    draggingDivider.value = false
+    const ratio = leftPanePercent.value
+    if (previousCollapsed === 'left' && ratio > 0 && ratio < 20) {
+      leftPanePercent.value = 20
+    } else if (previousCollapsed === 'right' && ratio < 100 && ratio > 80) {
+      leftPanePercent.value = 80
+    } else if (ratio < 20 || ratio > 80) {
+      const side = ratio < 20 ? 'left' : 'right'
+      leftPanePercent.value = side === 'left' ? 0 : 100
+      dividerSnapTimer = setTimeout(() => { collapsedPane.value = side }, 240)
+    } else {
+      leftPanePercent.value = Math.max(20, Math.min(80, ratio))
+    }
+  }
+  stopDividerDrag = stop
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', stop)
+  window.addEventListener('pointercancel', stop)
+}
+function restoreOnNarrowScreen() { if (window.innerWidth <= 900) { clearTimeout(dividerSnapTimer); collapsedPane.value = 'none'; leftPanePercent.value = 50 } }
+function restorePaneKey(event: KeyboardEvent) {
+  if ((collapsedPane.value === 'left' && event.key === 'ArrowRight') || (collapsedPane.value === 'right' && event.key === 'ArrowLeft')) {
+    event.preventDefault()
+    leftPanePercent.value = collapsedPane.value === 'left' ? 20 : 80
+    collapsedPane.value = 'none'
+  }
+}
+function dividerKey(event: KeyboardEvent) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  leftPanePercent.value = Math.max(20, Math.min(80, leftPanePercent.value + (event.key === 'ArrowLeft' ? -5 : 5)))
+}
+
 const leftViewMode = ref<ViewMode>('globe')
 const activeRoiLayer = ref<RoiLayer>('optical')
 
@@ -29,23 +93,25 @@ const targetInfo = ref({
 })
 
 // Info Popover visibility
-const showLeftInfo = ref(true)
+const showLeftInfo = ref(false)
 const showRightInfo = ref(false)
 const earthMatched = ref(false)
 const menu = ref<'' | 'options' | 'tools' | 'export'>('')
-const showRejected = ref(true)
-const matchedVote = ref('')
 const matchedStatus = ref('')
-const statusClass = (st?: string) => (st === 'PLAUSIBLE_CANDIDATE' ? 'ok' : st === 'REJECTED' ? 'bad' : 'mid')
-const statusText = (st?: string) => ({ PLAUSIBLE_CANDIDATE: 'plausible', REJECTED: 'rejected', INSUFFICIENT_EVIDENCE: 'insufficient evidence' } as Record<string, string>)[st ?? ''] ?? 'unrated'
+const statusClass = (st?: string) => (st === 'ACCEPTED' || st === 'PLAUSIBLE_CANDIDATE' ? 'ok' : st === 'REJECTED' ? 'bad' : 'mid')
+const statusText = (st?: string) => ({ ACCEPTED: 'Accepted', PLAUSIBLE_CANDIDATE: 'plausible', REJECTED: 'rejected', INSUFFICIENT_EVIDENCE: 'insufficient evidence' } as Record<string, string>)[st ?? ''] ?? 'unrated'
 const showHelp = ref(true)
 try { showHelp.value = localStorage.getItem('tt_help_seen') !== '1' } catch { /* storage blocked: keep the hint visible */ }
 function closeHelp() { showHelp.value = false; try { localStorage.setItem('tt_help_seen', '1') } catch { /* ignore */ } }
 function toggleMenu(m: 'options' | 'tools' | 'export') { menu.value = menu.value === m ? '' : m }
+function closeMenuOnOutsideClick(event: PointerEvent) {
+  const target = event.target
+  if (menu.value && target instanceof Element && !target.closest(`[data-menu="${menu.value}"]`)) menu.value = ''
+}
 function downloadJson() {
   const q = currentQuery()
   if (!q) return
-  const blob = new Blob([JSON.stringify({ note: 'Unverified model opinions plus measurements, not geological ground truth.', run: runId.value, query: q }, null, 1)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify({ note: 'Unverified model opinions plus measurements, not geological ground truth.', run: runId.value, setup: { ...props.setup, origin: originCity.value }, query: q }, null, 1)], { type: 'application/json' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = `terratwinn_${q.info.query_id}.json`; a.click()
   URL.revokeObjectURL(a.href); menu.value = ''
@@ -92,86 +158,126 @@ const matchedAnalog = ref({
 })
 
 // ---- Backend data (FastAPI /api/analogs). Everything shown is an unverified model opinion. ----
-interface Cand { retrieval_only?: boolean; breaks_down?: string; rank: number; region: string; lat?: number; lon?: number; vote?: string; agreement?: number; status?: string;
-  earth_terrain?: { slope_p90?: number; baseline_m?: number }; environment?: { lst_modis?: { lst_day_mean_c?: number }; wind_era5?: { stats?: { mean_speed_ms?: number } } };
-  earth_slope_p90_deg?: number; cosine: number; reasoning?: { composite: number | null; reason: string } }
-interface Query { info: { query_id: string; lat: number; lon_east: number; product?: string; slope_p90_deg?: number }; candidates: Cand[] }
-const readableName = (id: string) => id.replace(/_/g, ' ').replace(/\b[a-z]/g, c => c.toUpperCase())
+interface TerrainStats {
+  slope_p90_deg: number; slope_mean_deg: number; elevation_range_m: number; roughness_rms_m: number;
+  posting_m: number; baseline_m: number; sampled_width_m: number; valid_fraction: number; n_valid: number;
+  source: string; source_url: string; provenance?: string; note?: string;
+}
+interface Cand { breaks_down?: string; rank: number; region: string; region_name?: string; admin1?: string; country?: string; field_test?: { decision: string; reasons: string[] }; lat?: number; lon?: number; vote?: string; agreement?: number; status?: string;
+  lighting?: LightingSchedule;
+  earth_slope_p90_deg?: number; cosine: number; reasoning?: { composite: number | null; reason: string };
+  composite?: number; final_score?: number; image?: string; image_url?: string;
+  distance_km?: number | null; roughness?: { native_metrics?: TerrainStats; comparison?: TerrainStats; available: boolean; roughness_rms_m: number; posting_m: number; sampled_width_m: number; source: string; source_url: string };
+  earth_terrain?: { slope_p90?: number; baseline_m?: number };
+  score_components?: Record<string, { value: number | null; weight: number; confidence: number }> }
+interface Query { info: { query_id: string; name?: string; lat: number; lon_east: number; product?: string; slope_p90_deg?: number }; candidates: Cand[] }
 const queries = ref<Query[]>([])
-const marsRois = ref<Record<string, { source_description: string; output_grid_m: number }>>({})
-const moonRois = ref<Record<string, { source_description: string; output_grid_m: number; slope?: { p90_deg: number; grid_m: number[] } }>>({})
-async function loadMoonRois() {
-  try {
-    const response = await fetch('/api/analogs/moon-rois')
-    if (response.ok) moonRois.value = (await response.json()).sites
-  } catch { /* Catalog remains available without the optional ROI. */ }
-}
-async function loadMarsRois() {
-  try {
-    const response = await fetch('/api/analogs/mars-rois')
-    if (response.ok) marsRois.value = (await response.json()).sites
-  } catch { /* Catalog locations remain usable when ROI metadata is unavailable. */ }
-}
-const siteOptions = computed(() => {
-  const analyzed = queries.value.map(q => ({ ...q, name: planetaryCatalog.sites.find(s => s.body === currentPlanet.value && s.id === q.info.query_id)?.name ?? readableName(q.info.query_id), analyzed: true }))
-  const existing = new Set(analyzed.map(q => q.info.query_id))
-  const catalog = planetaryCatalog.sites.filter(s => s.body === currentPlanet.value && !existing.has(s.id))
-    .map(s => ({ info: s.query_info, candidates: [] as Cand[], name: s.name, analyzed: false }))
-  return [...analyzed, ...catalog]
-})
 const selectedQuery = ref<string>('')
-const apiStatus = ref('Loading analog results…')
-const candidates = ref<Cand[]>([])
-const activeCandidate = ref<Cand | null>(null)
-const runId = ref('')
-const searchPool = ref<'us' | 'global'>('us')
-interface CatalogRegion { id: string; name: string; lat: number; lon: number; description: string; source_flag: string;
-  source_line: string; coordinate_status: string; image_available: boolean; geometry: { coordinates: number[][][] } }
-const catalogRegions = ref<CatalogRegion[]>([])
-const catalogError = ref('')
-const showCatalog = ref(false)
-const catalogSearch = ref('')
-const selectedCatalog = ref<CatalogRegion | null>(null)
-const earthNames = new Map<string, string>([
-  ...Object.entries(earthResearch.existing_matches).flatMap(([name, ids]) => ids.map(id => [id, name] as [string, string])),
-  ...earthResearch.regions.map(r => [r.id, r.description.split(':')[0]!] as [string, string])
-])
-const catalogLabel = (r: CatalogRegion) => r.name ?? earthNames.get(r.id) ?? readableName(r.id)
-const earthRegionName = (id: string) => {
-  const region = catalogRegions.value.find(r => r.id === id)
-  return region ? catalogLabel(region) : readableName(id)
+const siteSearch = ref('')
+const siteSearchInput = ref<HTMLInputElement | null>(null)
+const searchOpen = ref(false)
+const prettyName = (id: string) => id.replace(/_/g, ' ').replace(/\b[a-z]/g, c => c.toUpperCase())
+const queryName = (q: Query) => q.info.name ?? prettyName(q.info.query_id)
+const candidateName = (c: Cand) => c.region_name ?? prettyName(c.region)
+const candidateLocation = (c: Cand) => [c.admin1, c.country].filter(Boolean).join(', ') || 'Location details unavailable'
+interface PlanetMarker { id: string; name: string; lat: number; lng: number }
+const markerCatalog = ref<Record<PlanetKey, PlanetMarker[]>>({ moon: [], mars: [] })
+const markerSamples: Partial<Record<PlanetKey, PlanetMarker[]>> = {}
+function refreshPlanetMarkers() {
+  if (!leftGlobe) return
+  const body = currentPlanet.value
+  if (!markerSamples[body]) {
+    const all = new Map(markerCatalog.value[body].map(s => [s.id, s]))
+    for (const q of queries.value) {
+      if (!all.has(q.info.query_id)) all.set(q.info.query_id, { id: q.info.query_id, name: queryName(q), lat: q.info.lat, lng: q.info.lon_east })
+    }
+    // Fisher–Yates: sample without replacement; keep the sample for this page visit.
+    const shuffled = [...all.values()].filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!]
+    }
+    markerSamples[body] = shuffled.slice(0, Math.ceil(shuffled.length / 2))
+  }
+  const sample = [...markerSamples[body]!]
+  const selected = currentQuery()
+  if (selected && !sample.some(s => s.id === selected.info.query_id)) {
+    sample.push({ id: selected.info.query_id, name: queryName(selected), lat: selected.info.lat, lng: selected.info.lon_east })
+  }
+  leftGlobe.labelsData(sample)
 }
-const filteredCatalog = computed(() => catalogRegions.value.filter(r =>
-  `${catalogLabel(r)} ${r.id.replace(/_/g, ' ')} ${r.description}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
-    .includes(catalogSearch.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase())))
-async function loadCatalog() {
+async function loadMarkerCatalog() {
   try {
-    const response = await fetch('/api/analogs/catalog')
-    if (!response.ok) throw new Error('catalog')
-    catalogRegions.value = (await response.json()).regions
-    drawCatalog()
-  } catch { catalogError.value = 'Could not load the region catalog. Please reload to retry.' }
+    const response = await fetch('/api/analogs/planet-sites')
+    if (!response.ok) return
+    const data = await response.json()
+    for (const body of ['moon', 'mars'] as const) {
+      markerCatalog.value[body] = (data[body] ?? []).map((s: any) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lon_east }))
+      delete markerSamples[body]
+    }
+    refreshPlanetMarkers()
+  } catch { /* The existing report locations remain available when the catalog cannot load. */ }
 }
-function drawCatalog() {
-  rightGlobe?.labelsData(showCatalog.value ? catalogRegions.value : [])
-}
-function pickCatalog(r: CatalogRegion) {
-  selectedCatalog.value = r
-  rightGlobe?.pointOfView({ lat: r.lat, lng: r.lon, altitude: 0.12 }, 800)
-  drawRegions()
-}
-function toggleCatalog() {
-  showCatalog.value = !showCatalog.value
-  if (!showCatalog.value) selectedCatalog.value = null
-  drawCatalog()
-  drawRegions()
-}
-function changePool() {
-  candidates.value = []; earthMatched.value = false; showRightInfo.value = false
-  rightGlobe?.pointsData([])
-  useReport(currentPlanet.value)
+const filteredSites = computed(() => queries.value.filter(q => `${queryName(q)} ${q.info.query_id.replace(/_/g, ' ')}`.toLowerCase().includes(siteSearch.value.toLowerCase().trim())))
+function closeSiteSearch(event: FocusEvent) { if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) searchOpen.value = false }
+function chooseSite(q: Query) {
+  selectedQuery.value = q.info.query_id
+  siteSearch.value = queryName(q)
+  searchOpen.value = false
+  if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.site-search')) document.activeElement.blur()
   applyQuery(true)
 }
+function clearSiteSearch() {
+  siteSearch.value = ''
+  searchOpen.value = true
+  siteSearchInput.value?.focus()
+}
+const apiStatus = ref('Loading analog results…')
+const candidates = ref<Cand[]>([])
+const resultsRequested = ref(false)
+const selectedCandidateIndex = computed(() => candidates.value.findIndex(c => matchedAnalog.value.name === `#${c.rank} ${candidateName(c)}`))
+const resultsHidden = ref(false)
+const earthInspectorOpen = ref(false)
+const earthInspectorTab = ref<'overview' | 'compare' | 'lighting' | 'terrain' | 'sources'>('overview')
+const selectedCandidate = computed(() => candidates.value[selectedCandidateIndex.value])
+const isLunarLanding = computed(() => currentPlanet.value === 'moon' && props.setup.mission === 'crewed_lander')
+const isBaseMission = computed(() => props.setup.mission === 'surface_base')
+const showCaveRecommendations = ref(false)
+watch([selectedQuery, currentPlanet], () => { showCaveRecommendations.value = false })
+const lightingPlan = ref<LightingPlan | null>(null)
+const lightingBusy = ref(false)
+const lightingError = ref('')
+const lunarReferenceTime = ref('')
+const earthSearchStart = ref(new Date().toISOString().slice(0,10))
+const showLightingControls = ref(false)
+let lightingRequest = 0
+watch([selectedQuery, currentPlanet], () => { lightingRequest++; lightingBusy.value = false; lightingPlan.value = null; lightingError.value = ''; lunarReferenceTime.value = ''; showLightingControls.value = false })
+async function searchLighting(value = { lunarTime: lunarReferenceTime.value, startDate: earthSearchStart.value }) {
+  const q = currentQuery()
+  if (!q || !isLunarLanding.value) return
+  const request = ++lightingRequest
+  lightingBusy.value = true; lightingError.value = ''; resultsRequested.value = true
+  candidates.value = []; earthMatched.value = false; showRightInfo.value = false
+  rightGlobe?.customLayerData([])
+  earthSearchStart.value = value.startDate
+  const params = new URLSearchParams({ query_id: q.info.query_id, start_date: value.startDate, user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon) })
+  if (value.lunarTime) params.set('lunar_time', value.lunarTime.slice(0,16) + ':00Z')
+  try {
+    const response = await fetch('/api/analogs/lighting/plan?' + params)
+    const data = await response.json()
+    if (request !== lightingRequest) return
+    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Lighting planning failed')
+    lightingPlan.value = data
+    lunarReferenceTime.value = data.target.time_utc.slice(0,16)
+    candidates.value = data.candidates.filter((c: Cand) => c.field_test?.decision === 'ACCEPTED' && c.lighting?.windows.length)
+  } catch (error) {
+    if (request === lightingRequest) lightingError.value = error instanceof Error ? error.message : 'Lighting planning failed'
+  } finally { if (request === lightingRequest) lightingBusy.value = false }
+}
+function openEarthInspector() { if (selectedCandidate.value) { earthInspectorTab.value = 'overview'; earthInspectorOpen.value = true } }
+function closeEarthInspector() { earthInspectorOpen.value = false }
+watch([selectedQuery, currentPlanet], () => { earthInspectorOpen.value = false })
+const runId = ref('')
 // ---- Validation drawer (/api/analogs/validation) ----
 const showValidation = ref(false)
 const validation = ref<any>(null)
@@ -180,90 +286,66 @@ interface RatingSummary { n_decisive?: number; n_raters?: number; top5_chosen?: 
   fleiss_kappa?: number | null; per_rater?: Record<string, RaterStat>; n_raters_above_chance?: number;
   rater_level_sign_test_p_one_sided?: number | null; pooled_note?: string }
 const ratings = ref<RatingSummary | null>(null)
-async function openValidation() {
-  showValidation.value = true
-  if (!validation.value) {
-    try { validation.value = await (await fetch('/api/analogs/validation')).json() } catch { validation.value = { error: true } }
-  }
-  // Ratings can change while the page is open, so the summary is re-read on every open.
-  try {
-    const r = await fetch('/api/rate/summary')
-    if (r.ok) ratings.value = await r.json()
-  } catch { /* keep the copy embedded in the validation payload */ }
-}
 const ratingSummary = computed<RatingSummary>(() => ratings.value ?? validation.value?.ratings ?? {})
 const raterRows = computed(() => Object.entries(ratingSummary.value.per_rater ?? {}).map(([name, v], k) => ({ name, label: `Rater ${k + 1}`, ...v })))
-// ---- Search regions layer (GeoJSON from /api/analogs/regions) ----
-interface RegionFeature { properties: { id: string; kind: string; role?: string; n_patches?: number; n_retrieved?: number; n_vegetated_dropped?: number;
-  votes?: string[]; imagery?: string; center?: [number, number]; n_cells?: number; query?: string; note?: string }; geometry: { coordinates: number[][][] } }
-const regionFeatures = ref<RegionFeature[]>([])
-const showRegions = ref(true)
-const selectedRegion = ref<RegionFeature['properties'] | null>(null)
-
-async function loadRegions() {
-  if (!runId.value) { regionFeatures.value = []; drawRegions(); return }
-  try {
-    regionFeatures.value = (await (await fetch(`/api/analogs/regions?run=${encodeURIComponent(runId.value)}`)).json()).features
-    drawRegions()
-  } catch { /* the globe still works without the overlay */ }
-}
-
-function drawRegions() {
-  if (!rightGlobe) return
-  const feats: any[] = showRegions.value ? [...regionFeatures.value] : []
-  if (showCatalog.value && selectedCatalog.value) feats.push({ geometry: selectedCatalog.value.geometry,
-    properties: { id: selectedCatalog.value.id, kind: 'catalog_roi' } })
-  rightGlobe
-    .polygonsData(feats)
-    .polygonGeoJsonGeometry((f: any): any => globePolygonGeometry(f.geometry))
-    .polygonCapColor((f: any) => {
-      const k = f.properties.kind
-      if (k === 'catalog_roi') return 'rgba(168,85,247,0.55)'
-      if (k === 'screen_extent') return 'rgba(59,130,246,0.06)'
-      if (k === 'screen_top_cell') return 'rgba(245,158,11,0.35)'
-      return f.properties.n_retrieved > 0 ? 'rgba(239,68,68,0.55)' : 'rgba(16,185,129,0.45)'
-    })
-    .polygonSideColor(() => 'rgba(0,0,0,0)')
-    .polygonStrokeColor((f: any) => (f.properties.kind === 'screen_extent' ? '#3b82f6' : '#111827'))
-    .polygonAltitude((f: any) => (f.properties.kind === 'screen_extent' ? 0.002 : 0.006))
-    .polygonLabel((f: any) => {
-      const p = f.properties
-      if (p.kind === 'catalog_roi') return `${p.id} · proposed 250 m ROI`
-      return p.kind === 'pool_region'
-        ? `<b>${p.id}</b><br/>${p.role || ''}<br/>${p.n_patches} patches · ${p.n_retrieved} in Top-5`
-        : `<b>${p.kind === 'screen_extent' ? 'Screened area (arid US Southwest)' : 'Top screening cell'}</b>`
-    })
-    .onPolygonClick((f: any) => { selectedRegion.value = f.properties })
-}
-
-function toggleRegions() { showRegions.value = !showRegions.value; selectedRegion.value = null; drawRegions() }
 const isMars = computed(() => !!currentQuery())   // a real analog run exists for the current planet
-const hasMarsRoi = computed(() => currentPlanet.value === 'mars' && !!marsRois.value[selectedQuery.value])
-const hasMoonRoi = computed(() => currentPlanet.value === 'moon' && !!moonRois.value[selectedQuery.value])
-const canInspectRoi = computed(() => isMars.value || hasMarsRoi.value || hasMoonRoi.value)
-const queryImageUrl = computed(() => isMars.value ? imgUrl('query') : `/api/analogs/${currentPlanet.value}-rois/${encodeURIComponent(selectedQuery.value)}/image`)
 const imgUrl = (name: string) => `/api/analogs/${runId.value}/img/${selectedQuery.value}_${name}.png`
+const rankingScore = (c: Cand) => c.final_score ?? c.composite
+const scoreText = (c: Cand) => rankingScore(c) != null ? `${(rankingScore(c)! * 100).toFixed(1)}/100` : null
+const candidateStyle = (c: Cand, index: number) => {
+  const image = c.image_url ?? (c.image ? `/api/analogs/${runId.value}/img/${c.image}` : null)
+  return image ? { backgroundImage: `url(${image})`, backgroundPosition: 'center', backgroundSize: 'cover' }
+    : { backgroundImage: `url(${imgUrl('top5')})`, backgroundPosition: `${(index + 1) * 20}% 0` }
+}
+const candidateSlope = (c: Cand) => c.earth_slope_p90_deg ?? c.earth_terrain?.slope_p90
+const componentNames: Record<string, string> = { visual: 'Image', lithology: 'Rock / mineral', temperature: 'Temperature', slope: 'Slope p90', wind: 'Mean wind' }
+const reportUrl = (id: string) => `/api/analogs/${id}/report?` + new URLSearchParams({
+  user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon), mission_type: props.setup.mission,
+})
 const themis = computed(() => (currentQuery()?.info as any)?.thermal_inertia_themis ?? null)
+const measurements = computed(() => (currentQuery()?.info as any)?.measurements ?? null)
+const terrainMeasurement = computed(() => measurements.value?.terrain?.available ? measurements.value.terrain : null)
+const regionalTerrain = computed<TerrainStats | null>(() => measurements.value?.regional_terrain?.n_valid ? measurements.value.regional_terrain : null)
+const terrainScale = ref<'common' | 'native'>('common')
+const planetaryTerrainStats = computed<TerrainStats | null>(() => {
+  const terrain = terrainMeasurement.value
+  return (terrainScale.value === 'common' ? terrain?.comparison : terrain?.native_metrics) ?? null
+})
+const earthTerrainStats = computed<TerrainStats | null>(() => {
+  const terrain = selectedCandidate.value?.roughness
+  return (terrainScale.value === 'common' ? terrain?.comparison : terrain?.native_metrics) ?? null
+})
+const terrainRows = [
+  {key:'slope_p90_deg', label:'Slope p90', unit:'°', detail:'90% of DEM slopes fall below this value.'},
+  {key:'slope_mean_deg', label:'Mean slope', unit:'°', detail:'Average slope of the sampled terrain.'},
+  {key:'elevation_range_m', label:'Elevation range', unit:'m', detail:'Highest minus lowest valid elevation.'},
+  {key:'roughness_rms_m', label:'DEM roughness', unit:'m RMS', detail:'RMS height residual after removing a fitted plane.'},
+] as const
+const terrainValue = (data: TerrainStats | null, key: typeof terrainRows[number]['key'], unit: string) => {
+  const value = data?.[key]
+  return value != null && Number.isFinite(value) ? `${value.toFixed(2)} ${unit}` : 'No suitable DEM'
+}
+const terrainDifference = (key: typeof terrainRows[number]['key'], unit: string) => {
+  const a=planetaryTerrainStats.value?.[key], b=earthTerrainStats.value?.[key]
+  return a != null && b != null ? `${Math.abs(a-b).toFixed(2)} ${unit}` : '—'
+}
+const thermalInertia = computed(() => measurements.value?.thermal_inertia ?? themis.value)
+const temperatureContext = computed(() => measurements.value?.temperature_context ?? null)
 const footprint = computed(() => ((currentQuery()?.info as any)?.footprint_m ?? 250))
 
 async function loadReport() {
   try {
     const runs: { id: string }[] = await (await fetch(`/api/analogs/runs`)).json()
-    const run = runs.find((r) => r.id === 'mars_judge_screen_gated_veg_div2') ?? runs.find((r) => r.id.startsWith('mars_judge') && !r.id.endsWith('_global'))
-    if (run) reports.value.mars = { runId: run.id, queries: await (await fetch(`/api/analogs/${run.id}/report`)).json() }
-    const moon = runs.find((r) => r.id === 'moon_judge_screen_gated_veg_div2')
-    if (moon) reports.value.moon = { runId: moon.id, queries: await (await fetch(`/api/analogs/${moon.id}/report`)).json() }
+    const pick = (...ids: string[]) => ids.map(id => runs.find(r => r.id === id)).find(Boolean)
+    const run = pick('mars_judge_env_global', 'mars_judge_screen_gated_veg_div2_env', 'mars_judge_global', 'mars_judge_screen_gated_veg_div2')
+      ?? runs.find((r) => r.id.startsWith('mars_judge') && !r.id.includes('catalog_source'))
+    if (!run) { apiStatus.value = 'No analog run found'; return }
+    reports.value.mars = { runId: run.id, queries: await (await fetch(reportUrl(run.id))).json() }
+    const moon = pick('moon_judge_env_global', 'moon_judge_screen_gated_veg_div2_env', 'moon_judge_global', 'moon_judge_screen_gated_veg_div2')
+    if (moon) reports.value.moon = { runId: moon.id, queries: await (await fetch(reportUrl(moon.id))).json() }
     const supp = runs.find((r) => r.id === 'moon_judge_screen_gated_veg_div2_supp')
-    if (supp) reports.value.moon_supp = { runId: supp.id, queries: await (await fetch(`/api/analogs/${supp.id}/report`)).json() }
-    for (const planet of ['mars', 'moon']) {
-      const globalRun = runs.find(r => r.id === `${planet}_judge_global`)
-      if (globalRun) reports.value[`${planet}_global`] = { runId: globalRun.id,
-        queries: await (await fetch(`/api/analogs/${globalRun.id}/report`)).json() }
-    }
-    if (reports.value.mars_global) searchPool.value = 'global'
-    useReport('mars')
-    if (currentPlanet.value === 'moon') switchPlanet('mars')   // default view: Mars
-    else applyQuery()
+    if (supp) reports.value.moon_supp = { runId: supp.id, queries: await (await fetch(reportUrl(supp.id))).json() }
+    useReport(currentPlanet.value)
   } catch (e) {
     apiStatus.value = 'Backend not reachable (start the FastAPI server)'
   }
@@ -272,27 +354,21 @@ async function loadReport() {
 const reports = ref<Record<string, { runId: string; queries: any[] }>>({})
 
 const moonVariant = ref<'base' | 'supp'>('base')
-const hasMoonSupp = computed(() => !!reports.value.moon_supp)
-function setMoonVariant(v: 'base' | 'supp') { moonVariant.value = v; if (currentPlanet.value === 'moon') { useReport('moon'); applyQuery(); } }
 
 function useReport(planet: PlanetKey) {
-  const key = searchPool.value === 'global' ? `${planet}_global` : planet === 'moon' && moonVariant.value === 'supp' ? 'moon_supp' : planet
-  const r = reports.value[key]
-  if (!r) {
-    runId.value = ''; queries.value = []; selectedQuery.value = planetaryCatalog.sites.find(s => s.body === planet)?.id ?? ''
-    candidates.value = []; earthMatched.value = false; showRightInfo.value = false
-    rightGlobe?.pointsData([]); leftGlobe?.customLayerData([])
-    targetInfo.value = { lat: 0, lng: 0, name: 'No site selected', meta: '', slope: 'n/a', roughness: 'n/a', elevationRange: 'n/a' }
-    apiStatus.value = searchPool.value === 'global' ? 'Global results pending imagery and analysis. Browse the region catalog.' : `No ${planet} analog run`
-    loadRegions(); return
-  }
+  const r = reports.value[planet === 'moon' && moonVariant.value === 'supp' ? 'moon_supp' : planet]
+  if (!r) { runId.value = ''; queries.value = []; selectedQuery.value = ''; apiStatus.value = `No ${planet} analog run`; return }
   runId.value = r.runId
   // Terra Sirenum is hidden: its CTX query is only 50x50 px (5 m) and every candidate scored cosine 0.13-0.18 (noise). Results stay in the report files.
   const shown = r.queries.filter((q: any) => !q.info.query_id.includes('terra_sirenum'))
   queries.value = shown
-  selectedQuery.value = (shown.find((q: any) => q.info.query_id === selectedQuery.value) ?? shown.find((q: any) => q.info.query_id.includes('jezero')) ?? shown[0])?.info.query_id ?? ''
-  apiStatus.value = `${shown.length} ${searchPool.value === 'global' ? 'image comparisons' : 'analyzed'} · ${planetaryCatalog.sites.filter(s => s.body === planet).length} catalog sites · ${planet === 'mars' ? 'Mars' : 'Moon'}`
-  loadRegions()
+  selectedQuery.value = ''
+  siteSearch.value = ''
+  refreshPlanetMarkers()
+  candidates.value = []
+  earthMatched.value = false
+  rightGlobe?.customLayerData([])
+  apiStatus.value = `${shown.length} ${planet === 'mars' ? 'Mars' : 'Moon'} site(s) · run ${r.runId}`
 }
 
 function currentQuery() { return queries.value.find((q) => q.info.query_id === selectedQuery.value) }
@@ -300,36 +376,40 @@ function currentQuery() { return queries.value.find((q) => q.info.query_id === s
 const ZOOM_ALTITUDE = 0.35   // close enough to see the surface texture around the site
 
 function applyQuery(animate = false) {
-  const q = siteOptions.value.find(s => s.info.query_id === selectedQuery.value)
+  resultsRequested.value = false
+  const q = currentQuery()
   if (!q || !leftGlobe) return
-  const measured = currentQuery()
-  if (leftViewMode.value === 'roi') exitRoiMode()
   showLeftInfo.value = true
-  showRightInfo.value = false
-  activeCandidate.value = null
-  targetInfo.value = { lat: q.info.lat, lng: q.info.lon_east, name: q.name,
-    meta: measured ? measured.info.product ?? 'Analyzed ROI' : hasMarsRoi.value ? 'CTX · 250 m ROI · not analyzed yet' : hasMoonRoi.value ? 'LROC shadowed region · 10 m grid · no Top-5 results yet' : 'Catalog location — no ROI imagery or analysis yet',
-    slope: measured?.info.slope_p90_deg != null ? `p90 ${measured.info.slope_p90_deg}°` : hasMoonRoi.value && moonRois.value[selectedQuery.value]?.slope ? `p90 ${moonRois.value[selectedQuery.value]!.slope!.p90_deg.toFixed(2)}° (LOLA)` : 'no DTM',
-    roughness: 'n/a', elevationRange: 'n/a' }
+  targetInfo.value = { lat: q.info.lat, lng: q.info.lon_east, name: queryName(q),
+    meta: q.info.product ?? 'HiRISE', slope: q.info.slope_p90_deg != null ? `p90 ${q.info.slope_p90_deg}°` : 'no DTM',
+    roughness: 'Not available: no suitable DEM', elevationRange: 'n/a' }
+  const terrain = (q.info as any).measurements?.terrain
+  if (terrain?.available) {
+    targetInfo.value.slope = `p90 ${terrain.slope_p90_deg.toFixed(2)}°`
+    targetInfo.value.roughness = terrain.roughness_rms_m != null ? `${terrain.roughness_rms_m.toFixed(2)} m RMS (${Number(terrain.posting_m.toFixed(2))} m grid)` : 'Not available: no verified DEM roughness'
+    targetInfo.value.elevationRange = `${terrain.elevation_range_m.toFixed(1)} m`
+  }
   leftGlobe.customLayerData([{ lat: targetInfo.value.lat, lng: targetInfo.value.lng }])
+  refreshPlanetMarkers()
   leftGlobe.pointOfView({ lat: targetInfo.value.lat, lng: targetInfo.value.lng, altitude: ZOOM_ALTITUDE }, animate === true ? 900 : 0)
   candidates.value = []
   earthMatched.value = false
-  rightGlobe?.pointsData([])
+  rightGlobe?.customLayerData([])
 }
 
 function pickCandidate(c: Cand) {
-  activeCandidate.value = c
+  if (c.lat == null || c.lon == null) return
+  rightGlobe?.customLayerData([{ lat: c.lat, lng: c.lon, name: `#${c.rank} ${candidateName(c)}` }])
+  rightGlobe?.pointOfView({ lat: c.lat, lng: c.lon, altitude: 0.15 }, 1000)
   matchedAnalog.value = {
-    name: `#${c.rank} ${earthRegionName(c.region)}`, region: c.retrieval_only ? 'Experimental Sentinel-2 image retrieval · no judge' : `Judge: ${c.vote ?? 'n/a'} (${Math.round((c.agreement ?? 0) * 100)} % agreement)`,
+    name: `#${c.rank} ${candidateName(c)}`, region: 'Passed the field-test screen',
     lat: Number((c.lat ?? 0).toFixed(3)), lng: Number((c.lon ?? 0).toFixed(3)),
-    matchScore: c.reasoning?.composite != null ? `${Math.round(c.reasoning.composite * 100)}%` : '–',
-    slope: c.earth_slope_p90_deg != null ? `p90 ${c.earth_slope_p90_deg}°` : 'n/a',
-    roughness: 'n/a (not measured at 250 m)',
-    geology: c.reasoning?.reason ?? c.breaks_down ?? '', environment: ''
+    matchScore: scoreText(c) ?? (c.reasoning?.composite != null ? `${Math.round(c.reasoning.composite * 100)}%` : '–'),
+    slope: candidateSlope(c) != null ? `p90 ${candidateSlope(c)!.toFixed(2)}°` : 'n/a',
+    roughness: c.roughness?.available ? `${c.roughness.roughness_rms_m.toFixed(2)} m RMS (${c.roughness.posting_m} m grid)` : 'Not available: no suitable DEM',
+    geology: c.reasoning?.reason ?? '', environment: ''
   }
-  matchedVote.value = c.vote ?? ''
-  matchedStatus.value = c.status ?? ''
+  matchedStatus.value = c.field_test?.decision ?? 'REJECTED'
   showRightInfo.value = true
   earthMatched.value = true
 }
@@ -393,6 +473,20 @@ function initLeftGlobe() {
     .bumpImageUrl(cfg.bump)
     .backgroundColor('#ffffff')
     .showAtmosphere(false)
+    .labelsData([])
+    .labelLat('lat')
+    .labelLng('lng')
+    .labelText('name')
+    .labelColor(() => '#ffcf4d')
+    .labelSize(2.2)
+    .labelDotRadius(0.42)
+    .labelDotOrientation('top')
+    .labelAltitude(0.008)
+    .labelResolution(3)
+    .onLabelClick((label: object) => {
+      const q = queries.value.find(q => q.info.query_id === (label as PlanetMarker).id)
+      if (q) chooseSite(q)
+    })
     .customLayerData([])
     .customThreeObject(() => create3DPin(0xef4444))
     .customThreeObjectUpdate((obj: any, d: any) => {
@@ -407,12 +501,12 @@ function initLeftGlobe() {
     .onGlobeClick(({ lat, lng }: { lat: number; lng: number }) => {
       // Only real sites can be inspected: snap to the nearest one within 12 degrees, otherwise ignore the click.
       const rad = Math.PI / 180
-      let best: (typeof siteOptions.value)[number] | null = null, bestD = 12
-      for (const q of siteOptions.value) {
+      let best: Query | null = null, bestD = 12
+      for (const q of queries.value) {
         const d = Math.acos(Math.min(1, Math.max(-1, Math.sin(lat * rad) * Math.sin(q.info.lat * rad) + Math.cos(lat * rad) * Math.cos(q.info.lat * rad) * Math.cos((lng - q.info.lon_east) * rad)))) / rad
         if (d < bestD) { best = q; bestD = d }
       }
-      if (best) { selectedQuery.value = best.info.query_id; applyQuery(true) }
+      if (best) chooseSite(best)
     })
 
   const controls = leftGlobe.controls()
@@ -452,22 +546,21 @@ function initRightGlobe() {
     .showAtmosphere(true)
     .atmosphereColor('#8ec5fc')
     .atmosphereAltitude(0.12)
-    .pointsData([])
-    .pointLat('lat')
-    .pointLng('lng')
-    .pointColor('color')
-    .pointRadius('size')
-    .pointAltitude(0.015)
-    .pointLabel((d: any) => `<b>${d.name}</b><br/>Lat: ${d.lat}°, Lng: ${d.lng}°`)
-    .onPointClick((d: any) => pickCandidate(d.cand))
-    .labelsData([])
-    .labelLat('lat')
-    .labelLng('lon')
-    .labelText(() => '')
-    .labelDotRadius(0.4)
-    .labelColor(() => '#a855f7')
-    .labelAltitude(0.012)
-    .onLabelClick((d: any) => pickCatalog(d))
+    .customLayerData([])
+    .customThreeObject(() => {
+      const pin = create3DPin(0xef4444)
+      pin.scale.setScalar(0.055)
+      return pin
+    })
+    .customThreeObjectUpdate((obj: THREE.Object3D, d: any) => {
+      if (!rightGlobe) return
+      const coords = rightGlobe.getCoords(d.lat, d.lng, 0.0001)
+      if (coords) {
+        Object.assign(obj.position, coords)
+        const normal = new THREE.Vector3(coords.x, coords.y, coords.z).normalize()
+        obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal)
+      }
+    })
 
   const controls = rightGlobe.controls()
   if (controls) {
@@ -490,28 +583,21 @@ function initRightGlobe() {
   rightResizeObserver.observe(rightGlobeContainer.value)
 }
 
-function switchPlanet(planet: PlanetKey) {
-  if (currentPlanet.value === planet || !leftGlobe) return
-  currentPlanet.value = planet
-  const cfg = PLANET_TEXTURES[planet]
-
-  useReport(planet)
-  showLeftInfo.value = true
-
-  leftGlobe
-    .globeImageUrl(cfg.globe)
-    .bumpImageUrl(cfg.bump)
-    .customLayerData([{ lat: targetInfo.value.lat, lng: targetInfo.value.lng }])
-
-  if (siteOptions.value.some(s => s.info.query_id === selectedQuery.value)) applyQuery(true)
-  else leftGlobe.pointOfView({ lat: 0, lng: 0, altitude: 2.2 }, 0)
+function restoreSplitView() {
+  clearTimeout(dividerSnapTimer)
+  fullscreenPane.value = 'none'
+  collapsedPane.value = 'none'
+  leftPanePercent.value = 50
 }
-
 function toggleFullscreen(pane: 'left' | 'right') {
-  if (fullscreenPane.value === pane) {
-    fullscreenPane.value = 'none'
-  } else {
+  clearTimeout(dividerSnapTimer)
+  if (window.innerWidth <= 900) {
+    collapsedPane.value = 'none'
     fullscreenPane.value = pane
+  } else {
+    fullscreenPane.value = 'none'
+    collapsedPane.value = pane === 'left' ? 'right' : 'left'
+    leftPanePercent.value = pane === 'left' ? 100 : 0
   }
 }
 
@@ -523,14 +609,86 @@ function toggleRightInfo() {
   showRightInfo.value = !showRightInfo.value
 }
 
+const cropFrame = ref<HTMLElement | null>(null)
+const crop = ref({ x: 25, y: 25, width: 50, height: 50 })
+let cropDrag: { mode: string; x: number; y: number; start: typeof crop.value; width: number; height: number } | null = null
+const cropDimensions = computed(() => ({ width: Math.round(crop.value.width * footprint.value / 100), height: Math.round(crop.value.height * footprint.value / 100) }))
+const cropDialog = ref<HTMLDialogElement | null>(null)
+const dimensionWidth = ref('')
+const dimensionHeight = ref('')
+const dimensionError = ref('')
+function openCropDimensions() {
+  cropDrag = null
+  dimensionWidth.value = String(cropDimensions.value.width)
+  dimensionHeight.value = String(cropDimensions.value.height)
+  dimensionError.value = ''
+  cropDialog.value?.show()
+}
+function parseMetres(text: string) {
+  const match = text.trim().match(/^(\d+(?:[.,]\d+)?|[.,]\d+)\s*(?:m|metres?|meters?)?$/i)
+  return match ? Number(match[1]!.replace(',', '.')) : NaN
+}
+function saveCropDimensions() {
+  const w = parseMetres(dimensionWidth.value), h = parseMetres(dimensionHeight.value)
+  const max = Math.min(250, footprint.value)
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w < 50 || h < 50 || w > max || h > max) {
+    dimensionError.value = 'Value must be between 50 and 250'
+    return
+  }
+  const width = w / footprint.value * 100, height = h / footprint.value * 100
+  crop.value = { x: Math.min(crop.value.x, 100 - width), y: Math.min(crop.value.y, 100 - height), width, height }
+  cropDialog.value?.close()
+}
+
+function startCrop(event: PointerEvent, mode: string) {
+  const rect = cropFrame.value?.getBoundingClientRect()
+  if (!rect) return
+  event.preventDefault()
+  const target = event.currentTarget as HTMLElement
+  target.setPointerCapture(event.pointerId)
+  cropDrag = { mode, x: event.clientX, y: event.clientY, start: { ...crop.value }, width: rect.width, height: rect.height }
+}
+function moveCrop(event: PointerEvent) {
+  if (!cropDrag) return
+  const { mode, x, y, start, width, height } = cropDrag
+  const dx = (event.clientX - x) / width * 100, dy = (event.clientY - y) / height * 100
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
+  if (mode === 'move') {
+    crop.value = { ...start, x: clamp(start.x + dx, 0, 100 - start.width), y: clamp(start.y + dy, 0, 100 - start.height) }
+    return
+  }
+  const maxSize = Math.min(100, 250 / footprint.value * 100), minSize = Math.min(5, maxSize)
+  if (event.shiftKey) {
+    const anchorX = mode.includes('w') ? start.x + start.width : start.x
+    const anchorY = mode.includes('n') ? start.y + start.height : start.y
+    const desiredWidth = start.width + (mode.includes('w') ? -dx : dx)
+    const desiredHeight = start.height + (mode.includes('n') ? -dy : dy)
+    const scale = Math.abs(desiredWidth / start.width - 1) >= Math.abs(desiredHeight / start.height - 1) ? desiredWidth / start.width : desiredHeight / start.height
+    const maxWidth = Math.min(maxSize, mode.includes('w') ? anchorX : 100 - anchorX)
+    const maxHeight = Math.min(maxSize, mode.includes('n') ? anchorY : 100 - anchorY)
+    const bounded = clamp(scale, Math.min(minSize / start.width, minSize / start.height), Math.min(maxWidth / start.width, maxHeight / start.height))
+    const w = start.width * bounded, h = start.height * bounded
+    crop.value = { x: mode.includes('w') ? anchorX - w : anchorX, y: mode.includes('n') ? anchorY - h : anchorY, width: w, height: h }
+    return
+  }
+  let left = start.x, top = start.y, right = start.x + start.width, bottom = start.y + start.height
+  if (mode.includes('w')) left = clamp(start.x + dx, Math.max(0, right - maxSize), right - minSize)
+  if (mode.includes('e')) right = clamp(right + dx, left + minSize, Math.min(100, left + maxSize))
+  if (mode.includes('n')) top = clamp(start.y + dy, Math.max(0, bottom - maxSize), bottom - minSize)
+  if (mode.includes('s')) bottom = clamp(bottom + dy, top + minSize, Math.min(100, top + maxSize))
+  crop.value = { x: left, y: top, width: right - left, height: bottom - top }
+}
+function endCrop() { cropDrag = null }
+
 function enterRoiMode() {
-  if (!canInspectRoi.value) return
-  activeRoiLayer.value = 'optical'
+  const size = Math.min(50, 250 / footprint.value * 100)
+  crop.value = { x: (100 - size) / 2, y: (100 - size) / 2, width: size, height: size }
   leftViewMode.value = 'roi'
   showLeftInfo.value = false
 }
 
 function exitRoiMode() {
+  cropDialog.value?.close()
   leftViewMode.value = 'globe'
   showLeftInfo.value = true
   if (leftGlobe && leftGlobeContainer.value) {
@@ -540,38 +698,37 @@ function exitRoiMode() {
   }
 }
 
-function findTerrestrialAnalogs() {
+async function findTerrestrialAnalogs() {
   const q = currentQuery()
   if (!q) {
     apiStatus.value = 'No analog run for this planet'
     return
   }
-  candidates.value = q.candidates.filter((c) => c.lat != null && c.lon != null)
-  rightGlobe?.pointsData(candidates.value.filter((c) => showRejected.value || c.vote !== 'different').map((c) => ({
-    lat: c.lat, lng: c.lon, size: 0.9, cand: c,
-    color: c.vote === 'different' ? '#9ca3af' : '#ef4444',
-    name: `#${c.rank} ${earthRegionName(c.region)} (${c.retrieval_only ? 'image retrieval only' : 'judge: ' + c.vote})`
-  })))
-  const top = candidates.value[0]
-  if (top) {
-    pickCandidate(top)
-    rightGlobe?.pointOfView({ lat: top.lat, lng: top.lon, altitude: 1.6 }, 1200)
-  }
+  resultsHidden.value = false
+  resultsRequested.value = true
+  if (isLunarLanding.value) { await searchLighting(); return }
+  candidates.value = q.candidates.filter((c) => c.field_test?.decision === 'ACCEPTED' && c.lat != null && c.lon != null)
+  if (isBaseMission.value) showCaveRecommendations.value = true
+  rightGlobe?.customLayerData([])
+  earthMatched.value = false
+  showRightInfo.value = false
 }
 
-watch(showRejected, () => { if (candidates.value.length) findTerrestrialAnalogs() })
 
 onMounted(() => {
+  document.addEventListener('pointerdown', closeMenuOnOutsideClick)
+  window.addEventListener('resize', restoreOnNarrowScreen)
   initLeftGlobe()
   initRightGlobe()
   loadReport()
-  loadMarsRois()
-  loadMoonRois()
-  loadRegions()
-  loadCatalog()
+  loadMarkerCatalog()
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeMenuOnOutsideClick)
+  window.removeEventListener('resize', restoreOnNarrowScreen)
+  stopDividerDrag?.()
+  clearTimeout(dividerSnapTimer)
   if (leftResizeObserver) leftResizeObserver.disconnect()
   if (rightResizeObserver) rightResizeObserver.disconnect()
 })
@@ -581,49 +738,13 @@ onBeforeUnmount(() => {
   <div class="terratwinn-app">
     <!-- Top Bar: Options, Tools, TerraTwinn, Export -->
     <header class="top-bar">
-      <div class="top-left">
-        <div class="menu-wrap">
-          <button class="menu-item-btn" :aria-expanded="menu === 'options'" @click="toggleMenu('options')">Options</button>
-          <div v-if="menu === 'options'" class="menu-panel">
-            <label><input type="checkbox" :checked="showRegions" @change="toggleRegions" /> Show search regions on Earth</label>
-            <label><input type="checkbox" v-model="showRejected" /> Show candidates the judge rejected (grey)</label>
-            <div v-if="currentPlanet === 'moon' && hasMoonSupp" class="menu-radios">
-              <small>Moon run</small>
-              <label><input type="radio" value="base" :checked="moonVariant === 'base'" @change="setMoonVariant('base')" /> Original pool</label>
-              <label><input type="radio" value="supp" :checked="moonVariant === 'supp'" @change="setMoonVariant('supp')" /> + Cinder Lake patches (post-hoc control)</label>
-            </div>
-            <button class="menu-link" @click="showHelp = true; menu = ''">Show the 3-step guide</button>
-          </div>
-        </div>
-        <div class="menu-wrap">
-          <button class="menu-item-btn" :aria-expanded="menu === 'tools'" @click="toggleMenu('tools')">Tools</button>
-          <div v-if="menu === 'tools'" class="menu-panel">
-            <button class="menu-link" @click="openValidation(); menu = ''">Validation results</button>
-            <a class="menu-link" href="/docs" target="_blank" rel="noopener">API docs</a>
-          </div>
-        </div>
-        <button class="menu-item-btn" @click="openValidation">Validation</button>
-        <select v-if="siteOptions.length" v-model="selectedQuery" class="menu-item-btn" @change="applyQuery(true)" title="Site" aria-label="Planetary site">
-          <optgroup :label="searchPool === 'global' ? 'Image comparison available' : 'Analyzed ROIs'">
-            <option v-for="q in siteOptions.filter(s => s.analyzed)" :key="q.info.query_id" :value="q.info.query_id">{{ q.name }}</option>
-          </optgroup>
-          <optgroup label="Catalog locations — analysis pending">
-            <option v-for="q in siteOptions.filter(s => !s.analyzed)" :key="q.info.query_id" :value="q.info.query_id">{{ q.name }} — {{ (currentPlanet === 'mars' ? marsRois[q.info.query_id] : moonRois[q.info.query_id]) ? 'imagery available, not analyzed' : 'no imagery yet' }}</option>
-          </optgroup>
-        </select>
-      </div>
-
       <div class="top-center">
         <h1 class="brand-title">TerraTwinn</h1>
         <small class="api-line" :title="'Model opinions, not geological ground truth'">{{ apiStatus }}</small>
       </div>
 
-      <div class="top-right">
-        <select v-model="searchPool" class="menu-item-btn dataset-select" aria-label="Search dataset" @change="changePool">
-          <option value="global">Global · {{ catalogRegions.length }} regions</option>
-          <option value="us">US · NAIP archive</option>
-        </select>
-        <button class="menu-item-btn" @click="toggleCatalog">Global regions ({{ catalogRegions.length }})</button>
+
+      <div class="top-right" data-menu="export">
         <button class="export-capsule-btn" :aria-expanded="menu === 'export'" @click="toggleMenu('export')">
           <span>Export</span>
           <svg class="chevron-down-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
@@ -631,59 +752,28 @@ onBeforeUnmount(() => {
           </svg>
         </button>
         <div v-if="menu === 'export'" class="menu-panel menu-panel-right">
-          <button class="menu-link" :disabled="!isMars" @click="downloadJson">Download this site's report (JSON)</button>
+          <button class="menu-link" :disabled="!selectedQuery" @click="downloadJson">Download this site's report (JSON)</button>
           <a v-if="queries.length && candidates.length" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
         </div>
       </div>
     </header>
-    <div v-if="searchPool === 'global'" class="help-strip" role="note">
-      Experimental image ranking · 250 m ROI / 10 m pixels. No landing suitability assessment.
-      <span v-if="!queries.length">Results are not available yet; catalog locations are proposals, not scored matches.</span>
-    </div>
-    <aside v-if="showCatalog" class="catalog-drawer" aria-label="Global candidate locations">
-      <header><strong>Candidate regions · {{ catalogRegions.length }}</strong><button @click="toggleCatalog" aria-label="Close catalog">✕</button></header>
-      <p>Imported locations, not verified test or landing sites. Purple dots show proposed ROI centers.</p>
-      <a href="/api/analogs/catalog.kml" download>Download 250 m boxes (KML)</a>
-      <input v-model="catalogSearch" aria-label="Search candidate regions" placeholder="Search name or terrain…" />
-      <p v-if="catalogError" role="alert">{{ catalogError }}</p>
-      <article v-if="selectedCatalog" class="catalog-detail">
-        <strong>{{ catalogLabel(selectedCatalog) }}</strong>
-        <img v-if="selectedCatalog.image_available" :src="`/api/analogs/catalog/${selectedCatalog.id}/image`"
-          :alt="`Sentinel-2 ROI at ${selectedCatalog.id.replace(/_/g, ' ')}`" class="catalog-preview" />
-        <small v-if="selectedCatalog.image_available">250 m ROI · 25 × 25 source pixels, enlarged for viewing</small>
-        <p>{{ selectedCatalog.description }}</p>
-        <p>{{ selectedCatalog.lat }}, {{ selectedCatalog.lon }} · 250 m ROI</p>
-        <p>{{ selectedCatalog.source_flag }}: {{ selectedCatalog.coordinate_status === 'approximate' ? 'Approximate center' : 'Source-claimed coordinate' }}; ROI not independently verified.</p>
-        <small>{{ selectedCatalog.source_line }}</small>
-        <a :href="`https://earth.google.com/web/search/${selectedCatalog.lat},${selectedCatalog.lon}`" target="_blank" rel="noopener">Inspect in Google Earth</a>
-      </article>
-      <div class="catalog-list">
-        <button v-for="r in filteredCatalog" :key="r.id" @click="pickCatalog(r)">
-          <strong>{{ catalogLabel(r) }}</strong>
-          <small>{{ r.description }}</small>
-          <small>{{ r.source_flag }} · {{ r.image_available ? 'Imagery downloaded' : 'Imagery pending' }}</small>
-        </button>
-        <p v-if="!filteredCatalog.length && !catalogError">No matching locations.</p>
-      </div>
-    </aside>
 
     <div v-if="apiStatus.startsWith('Backend')" class="help-strip" style="background:#fee2e2" role="alert">{{ apiStatus }}</div>
     <!-- 3-step guide for first-time visitors -->
     <div v-if="showHelp" class="help-strip" role="note">
-      <span><b>1</b> Pick a site (top menu)</span>
+      <span><b>1</b> Search for a site on the globe</span>
       <span><b>2</b> Press <i>Inspect ROI</i> to see the real image and measurements</span>
       <span><b>3</b> Press <i>Find Terrestrial Analogs</i>, then click a dot on Earth</span>
-      <small>Grey dots = the judge rejected it. Scores are model opinions, not geology.</small>
+      <small>Only candidates that pass the field-test screen are shown. Scores are relative rankings.</small>
       <button @click="closeHelp" aria-label="Close guide">✕</button>
     </div>
 
     <!-- Main Dual Viewport -->
-    <main class="split-viewport">
+    <main ref="splitViewport" class="split-viewport" :class="{ 'is-dragging-divider': draggingDivider, 'collapsed-left': fullscreenPane === 'none' && collapsedPane === 'left', 'collapsed-right': fullscreenPane === 'none' && collapsedPane === 'right' }" :style="{ '--left-pane-width': leftPanePercent + '%' }">
       <!-- Left Viewport: Moon / Mars Target -->
       <section
-        v-show="fullscreenPane === 'none' || fullscreenPane === 'left'"
-        class="viewport-half left-half"
-        :class="{ 'is-fullscreen': fullscreenPane === 'left' }"
+        v-show="(fullscreenPane === 'none' || fullscreenPane === 'left') && (fullscreenPane !== 'none' || collapsedPane !== 'left')"
+        class="viewport-half left-half" :class="{ 'pane-expanded': collapsedPane === 'right', 'is-fullscreen': fullscreenPane === 'left' }"
       >
         <!-- 3D Globe Canvas Container: Permanently mounted so WebGL canvas is never destroyed -->
         <div ref="leftGlobeContainer" class="globe-canvas"></div>
@@ -691,42 +781,34 @@ onBeforeUnmount(() => {
         <!-- Mode 1: 3D Globe Controls Layer -->
         <div v-show="leftViewMode === 'globe'" class="globe-controls-layer">
           <!-- Left Header Controls -->
-          <div class="viewport-header">
-            <!-- Moon / Mars Segmented Toggle -->
-            <div class="celestial-toggle">
-              <button
-                class="toggle-btn"
-                :class="{ 'is-active': currentPlanet === 'moon' }"
-                @click="switchPlanet('moon')"
-              >
-                Moon
-              </button>
-              <button
-                class="toggle-btn"
-                :class="{ 'is-active': currentPlanet === 'mars' }"
-                @click="switchPlanet('mars')"
-              >
-                Mars
-              </button>
+          <div class="viewport-header justify-end">
+            <div v-if="queries.length" class="site-search" @focusout="closeSiteSearch">
+              <div class="site-search-field">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 4.5 4.5"/></svg>
+                <input ref="siteSearchInput" v-model="siteSearch" placeholder="Search sites" aria-label="Search sites" :aria-expanded="searchOpen" @focus="searchOpen = true" @keydown.esc="searchOpen = false" @keydown.enter.prevent="filteredSites[0] && chooseSite(filteredSites[0])" />
+                <button v-if="siteSearch" type="button" class="site-search-clear" aria-label="Clear search" @mousedown.prevent @click="clearSiteSearch">×</button>
+              </div>
+              <div v-if="searchOpen" class="site-search-results">
+                <button v-for="q in filteredSites" :key="q.info.query_id" @click="chooseSite(q)">{{ queryName(q) }}</button>
+                <p v-if="!filteredSites.length">No sites found</p>
+              </div>
             </div>
           </div>
 
           <!-- Bottom Left: Chat Bubble pointing directly to the 'i' button -->
-          <div v-if="showLeftInfo" class="info-callout-popover">
+          <div v-if="showLeftInfo && selectedQuery" class="info-callout-popover">
             <div class="popover-card">
+              <button class="recenter-btn" aria-label="Center on selected planetary site" title="Center on site" @click="leftGlobe?.pointOfView({ lat: targetInfo.lat, lng: targetInfo.lng, altitude: ZOOM_ALTITUDE }, 1000)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
               <div class="popover-line">Long <strong>{{ targetInfo.lng }}</strong></div>
               <div class="popover-line">Lat <strong>{{ targetInfo.lat }}</strong></div>
               <div class="popover-title"><strong>{{ targetInfo.name }}</strong></div>
               <div class="popover-meta">({{ targetInfo.meta }})</div>
-              <div v-if="currentPlanet === 'moon' && selectedQuery === 'shackleton_crater'" class="popover-meta">
-                Crater diameter about 20.92 km · permanently shadowed floor. The 40–120 K temperature range is regional, not measured for this cell.
-              </div>
 
               <div class="popover-divider"></div>
 
-              <button class="inspect-roi-action-btn" :disabled="!canInspectRoi" @click="enterRoiMode">
-                <span>{{ canInspectRoi ? `Inspect ${footprint} m ROI` : 'No ROI imagery / analysis yet' }}</span>
-                <span class="arrow-symbol">→</span>
+              <button class="roi-preview" :aria-label="`Inspect ${footprint} m ROI for ${targetInfo.name}`" @click="enterRoiMode">
+                <img :src="imgUrl('query')" :alt="`${targetInfo.name} surface preview`" draggable="false" />
+                <span>Inspect {{ footprint }} m ROI <span aria-hidden="true">↗</span></span>
               </button>
             </div>
             <!-- Pointer tail pointing down to the 'i' icon below -->
@@ -743,9 +825,10 @@ onBeforeUnmount(() => {
             <div class="info-circle-bold">i</div>
           </button>
 
+          <button class="bottom-icon-btn split-view-btn" title="50/50 split view" aria-label="Restore 50/50 split view" @click="restoreSplitView"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="9" height="16" rx="1"/><rect x="13" y="4" width="9" height="16" rx="1"/></svg></button>
           <button
             class="bottom-icon-btn bottom-right-icon"
-            :title="fullscreenPane === 'left' ? 'Collapse' : 'Expand'"
+            title="Expand" aria-label="Expand Moon or Mars view"
             @click="toggleFullscreen('left')"
           >
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round">
@@ -758,14 +841,59 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Mode 2: High-Res 300m ROI Inspector Overlay -->
+        <Transition name="roi-open">
         <div v-if="leftViewMode === 'roi'" class="roi-inspector-container">
+            <!-- Surface High-Res Map View -->
+            <div class="roi-map-viewport">
+              <button class="roi-globe-return" @click="exitRoiMode" :aria-label="`Back to ${PLANET_TEXTURES[currentPlanet].name} globe`" :title="`Back to ${PLANET_TEXTURES[currentPlanet].name} globe`">
+                <img :src="PLANET_TEXTURES[currentPlanet].globe" alt="" draggable="false" />
+                <span>Back</span>
+              </button>
+              <!-- Optical Surface Texture Layer -->
+              <div v-if="activeRoiLayer === 'optical' && isMars" class="roi-surface-layer">
+                <div ref="cropFrame" class="crop-frame">
+                  <img :src="imgUrl('query')" :alt="`${targetInfo.name} surface image`" draggable="false" />
+                  <div class="crop-guides" aria-hidden="true">
+                    <span class="guide-horizontal" :style="{ left: '0%', top: (crop.y + crop.height / 2) + '%', width: crop.x + '%' }"></span>
+                    <span class="guide-horizontal" :style="{ left: (crop.x + crop.width) + '%', top: (crop.y + crop.height / 2) + '%', width: (100 - crop.x - crop.width) + '%' }"></span>
+                    <span class="guide-vertical" :style="{ left: (crop.x + crop.width / 2) + '%', top: '0%', height: crop.y + '%' }"></span>
+                    <span class="guide-vertical" :style="{ left: (crop.x + crop.width / 2) + '%', top: (crop.y + crop.height) + '%', height: (100 - crop.y - crop.height) + '%' }"></span>
+                  </div>
+                  <div class="crop-selection" @dblclick.stop="openCropDimensions" :style="{ left: crop.x + '%', top: crop.y + '%', width: crop.width + '%', height: crop.height + '%' }" @pointerdown="startCrop($event, 'move')" @pointermove="moveCrop" @pointerup="endCrop" @pointercancel="endCrop">
+                    <span class="crop-size">{{ cropDimensions.width }} × {{ cropDimensions.height }} m</span>
+                    <span v-for="corner in ['nw', 'ne', 'sw', 'se']" :key="corner" :class="['crop-handle', corner]" @pointerdown.stop="startCrop($event, corner)" @pointermove.stop="moveCrop" @pointerup.stop="endCrop" @pointercancel.stop="endCrop"></span>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="activeRoiLayer === 'optical'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>No image</strong><span>No analog run for this planet.</span></div></div>
+
+              <!-- Slope / DEM Heatmap Layer -->
+              <div v-else-if="activeRoiLayer === 'slope' && isMars" class="roi-surface-layer real-evidence">
+                <div class="real-card">
+                  <strong>Slope / DEM</strong>
+                  <img v-if="terrainMeasurement?.image_url" :src="terrainMeasurement.image_url" class="terrain-preview" alt="DEM-derived slope map, purple 0 degrees to yellow 45 degrees" />
+                  <small v-if="terrainMeasurement?.image_url" class="slope-scale">0° · purple <span>yellow · 45°</span></small>
+                  <span>{{ targetInfo.slope }}</span>
+                  <template v-if="terrainMeasurement"><small>Mean {{ terrainMeasurement.slope_mean_deg }}° · elevation range {{ terrainMeasurement.elevation_range_m }} m</small><small>{{ terrainMeasurement.baseline_m.toFixed(1) }} m measurement baseline · {{ terrainMeasurement.posting_m.toFixed(1) }} m DEM grid</small><a :href="terrainMeasurement.source_url" target="_blank" rel="noreferrer">{{ terrainMeasurement.source }} · source raster ↗</a><small>{{ terrainMeasurement.note }}</small></template>
+                  <small v-else>{{ (currentQuery()?.info as any)?.slope_note ?? 'No verified high-resolution DEM window is available at this exact location.' }}</small>
+                </div>
+              </div>
+              <div v-else-if="activeRoiLayer === 'slope'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>No slope data</strong><span>No analog run for this planet.</span></div></div>
+
+              <!-- Thermal Layer -->
+              <div v-else-if="isMars" class="roi-surface-layer real-evidence">
+                <div class="real-card">
+                  <strong>{{ thermalInertia ? 'THEMIS thermal inertia' : 'Surface temperature context' }}</strong>
+                  <template v-if="thermalInertia"><span>ROI sample: {{ thermalInertia.window_250m?.mean }} tiu</span><span>5 km mean: {{ thermalInertia.square_5km?.mean }} tiu</span><small>100 m pixels · approximate ROI window · about 20% product accuracy</small><small>{{ thermalInertia.note ?? 'Thermal inertia is a surface-property proxy, not a temperature.' }}</small><a v-if="thermalInertia.source_url" :href="thermalInertia.source_url" target="_blank" rel="noreferrer">USGS quantitative THEMIS source ↗</a></template>
+                  <template v-if="temperatureContext"><strong>{{ temperatureContext.provenance === 'model' ? 'Climate / thermal model' : temperatureContext.provenance === 'measured' ? 'Regional satellite context' : 'Estimated context' }}</strong><span>Mid-range {{ temperatureContext.midrange_K.toFixed(1) }} K · range {{ temperatureContext.range_K.toFixed(1) }} K</span><small>{{ temperatureContext.source }}</small><small>{{ temperatureContext.note }}</small></template>
+                  <span v-if="!thermalInertia && !temperatureContext">No verified thermal data is available for this location.</span>
+                </div>
+              </div>
+              <div v-else class="roi-surface-layer real-evidence"><div class="real-card"><strong>No thermal data</strong><span>No analog run for this planet.</span></div></div>
+            </div>
+
             <!-- ROI Top Toolbar -->
             <div class="roi-toolbar">
-              <button class="back-globe-btn" @click="exitRoiMode">
-                <span class="back-arrow">←</span>
-                <span>Back to Globe</span>
-              </button>
-
               <div class="roi-target-tag">
                 <span class="target-badge">{{ targetInfo.name }}</span>
                 <span class="coords-badge">{{ footprint }} m ROI</span>
@@ -797,44 +925,12 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <!-- Surface High-Res Map View -->
-            <div class="roi-map-viewport">
-              <!-- Optical Surface Texture Layer -->
-              <div v-if="activeRoiLayer === 'optical' && canInspectRoi" class="roi-surface-layer">
-                <img :src="queryImageUrl" alt="Planetary 250 m ROI image" style="width:100%;height:100%;object-fit:contain;background:#000" />
-              </div>
-              <div v-else-if="activeRoiLayer === 'optical'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>No image</strong><span>No analog run for this planet.</span></div></div>
-
-              <!-- Slope / DEM Heatmap Layer -->
-              <div v-else-if="activeRoiLayer === 'slope' && isMars" class="roi-surface-layer real-evidence">
-                <div class="real-card">
-                  <strong>Slope</strong>
-                  <span>{{ targetInfo.slope }}</span>
-                  <small>{{ (currentQuery()?.info as any)?.slope_note ?? 'From the HiRISE DTM when one is loaded.' }}</small>
-                </div>
-              </div>
-              <div v-else-if="activeRoiLayer === 'slope' && hasMoonRoi && moonRois[selectedQuery]?.slope" class="roi-surface-layer real-evidence"><div class="real-card"><strong>LOLA slope</strong><span>{{ targetInfo.slope }}</span><small>NASA LOLA slope map, 10 m grid; effective resolution may be coarser.</small></div></div>
-              <div v-else-if="activeRoiLayer === 'slope'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>No slope data</strong><span>No slope measurement for this site.</span></div></div>
-
-              <!-- Thermal Layer -->
-              <div v-else-if="isMars" class="roi-surface-layer real-evidence">
-                <div class="real-card">
-                  <strong>{{ currentPlanet === 'moon' ? 'Thermal / atmosphere' : 'THEMIS thermal inertia' }}</strong>
-                  <span v-if="currentPlanet === 'moon'">Not applicable or not integrated: no wind, rain or atmosphere on the Moon; Diviner temperature is not loaded.</span>
-                  <span v-else-if="themis">250 m window: {{ themis.window_250m?.mean }} · 5 km square: {{ themis.square_5km?.mean }} tiu</span>
-                  <span v-else>no THEMIS value</span>
-                  <small>{{ themis?.note ?? '' }} Accuracy about 20 %.</small>
-                </div>
-              </div>
-              <div v-else class="roi-surface-layer real-evidence"><div class="real-card"><strong>No thermal data</strong><span>No analog run for this planet.</span></div></div>
-            </div>
-
             <!-- Elevation Transect Profile Section -->
             <div class="roi-transect-section">
               <div class="transect-header">
                 <div class="transect-title">
                   <strong>Measured evidence</strong>
-                  <span class="transect-sub">Unverified: model opinions plus measurements</span>
+                  <p class="evidence-description">Measurements and ranking use the full {{ footprint }} m ROI. The crop is a preview.</p>
                 </div>
                 <div class="transect-metrics">
                   <span class="metric-item">Slope: <strong>{{ targetInfo.slope }}</strong></span>
@@ -843,21 +939,50 @@ onBeforeUnmount(() => {
               </div>
 
               <!-- Find Analogs CTA -->
+              <div v-if="isBaseMission" class="lighting-planner-summary">
+                <strong>Subsurface base research</strong>
+                <span>Explore sourced lava-tube training sites, including C7 in Krong No, Vietnam. These suggestions complement your surface candidates.</span>
+                <button @click="showCaveRecommendations = true">Caves & lava tubes</button>
+              </div>
+              <div v-if="isLunarLanding" class="lighting-planner-summary">
+                <strong>Low-Sun landing-module tests</strong>
+                <span v-if="lightingPlan">Lunar Sun {{lightingPlan.target.elevation_deg.toFixed(2)}}° high · {{lightingPlan.target.azimuth_deg.toFixed(2)}}° azimuth. Matching Earth dates appear in each result.</span>
+                <span v-else>Find accepted Earth sites with matching low-Sun test windows over the next 365 days.</span>
+                <button @click="showLightingControls = true">Set lunar reference & test dates</button>
+                <p v-if="lightingBusy" role="status">Calculating matching test windows…</p>
+                <p v-if="lightingError" role="alert">{{lightingError}}</p>
+              </div>
               <div class="roi-cta-bar">
-                <button class="find-analogs-btn" :disabled="!isMars" @click="findTerrestrialAnalogs">
-                  <span>{{ isMars ? 'Find Terrestrial Analogs' : 'No comparison results yet' }}</span>
+                <button class="find-analogs-btn" :disabled="lightingBusy" @click="findTerrestrialAnalogs">
+                  <span>{{lightingBusy ? 'Calculating light matches…' : 'Find Terrestrial Analogs'}}</span>
                   <span class="arrow-symbol">→</span>
                 </button>
               </div>
             </div>
           </div>
+        </Transition>
+        <dialog ref="cropDialog" class="crop-dimension-dialog" aria-label="Edit crop dimensions" @keydown.esc="cropDialog?.close()">
+          <form @submit.prevent="saveCropDimensions">
+            <div class="dimension-inputs">
+              <input v-model="dimensionWidth" aria-label="Width in metres" inputmode="decimal" autocomplete="off" />
+              <span aria-hidden="true">×</span>
+              <input v-model="dimensionHeight" aria-label="Height in metres" inputmode="decimal" autocomplete="off" />
+              <span>m</span>
+            </div>
+            <p v-if="dimensionError" class="dimension-error" role="alert">{{ dimensionError }}</p>
+            <div class="dimension-actions"><button type="button" @click="cropDialog?.close()">Cancel</button><button type="submit">Apply</button></div>
+          </form>
+        </dialog>
         </section>
+
+      <div v-if="fullscreenPane === 'none' && collapsedPane === 'none'" class="pane-divider" role="separator" aria-label="Resize explorer panes" aria-orientation="vertical" :aria-valuenow="Math.round(leftPanePercent)" aria-valuemin="20" aria-valuemax="80" tabindex="0" @pointerdown="beginDividerDrag" @keydown="dividerKey"><span></span></div>
+      <div v-if="fullscreenPane === 'none' && collapsedPane !== 'none'" class="pane-restore" :class="collapsedPane" role="separator" tabindex="0" aria-orientation="vertical" :aria-label="collapsedPane === 'left' ? 'Drag right to show Moon and Mars pane' : 'Drag left to show Earth pane'" @pointerdown="beginDividerDrag" @keydown="restorePaneKey">{{ collapsedPane === 'left' ? '›' : '‹' }}</div>
 
       <!-- Right Viewport: Earth Analogs -->
       <section
-        v-show="fullscreenPane === 'none' || fullscreenPane === 'right'"
+        v-show="(fullscreenPane === 'none' || fullscreenPane === 'right') && (fullscreenPane !== 'none' || collapsedPane !== 'right')"
         class="viewport-half right-half"
-        :class="{ 'is-fullscreen': fullscreenPane === 'right' }"
+        :class="{ 'is-fullscreen': fullscreenPane === 'right', 'pane-expanded': collapsedPane === 'left' }"
       >
         <!-- Right Header Controls -->
         <div class="viewport-header justify-end">
@@ -866,73 +991,39 @@ onBeforeUnmount(() => {
         <!-- 3D Globe Canvas Container -->
         <div ref="rightGlobeContainer" class="globe-canvas"></div>
 
-        <!-- Standby or Matched Status Badge -->
-        <div class="regions-panel">
-          <button class="regions-toggle" :class="{ on: showRegions }" @click="toggleRegions">{{ showRegions ? 'Hide' : 'Show' }} search regions</button>
-          <div v-if="showRegions" class="regions-legend">
-            <span v-if="searchPool === 'us'"><i style="background:#3b82f6"></i>screened US area</span>
-            <span v-if="searchPool === 'us'"><i style="background:#f59e0b"></i>top screening cell</span>
-            <span><i style="background:#10b981"></i>{{ searchPool === 'global' ? '250 m candidate ROI' : 'sampled US region' }}</span>
-            <span><i style="background:#ef4444"></i>region with Top-5 hits</span>
-          </div>
-          <div v-if="selectedRegion && selectedRegion.kind === 'pool_region'" class="region-card">
-            <strong>{{ selectedRegion.id }}</strong>
-            <span>{{ selectedRegion.role }}</span>
-            <span>{{ selectedRegion.n_patches }} patches · {{ selectedRegion.n_retrieved }} in Top-5</span>
-            <span v-if="selectedRegion.n_vegetated_dropped != null">{{ selectedRegion.n_vegetated_dropped }} dropped as vegetated</span>
-            <small>{{ selectedRegion.imagery }}. {{ selectedRegion.note }}</small>
-          </div>
-        </div>
-        <div class="earth-status-indicator">
-          <span v-if="!earthMatched" class="status-pill-standby">Pick a site, then press Find analogs</span>
-          <span v-else class="status-pill-matched" :class="statusClass(matchedStatus)">{{ matchedAnalog.name }} · {{ statusText(matchedStatus) }}</span>
-        </div>
-
         <!-- Top-5 candidate cards -->
-        <div v-if="candidates.length" class="cand-list" aria-label="Top-5 Earth candidates">
-          <button v-for="(c, k) in candidates" :key="c.rank" class="cand-card" :class="{ sel: matchedAnalog.name.startsWith('#' + c.rank + ' ') }" @click="pickCandidate(c); rightGlobe?.pointOfView({ lat: c.lat, lng: c.lon, altitude: 1.6 }, 800)">
-            <span class="cand-thumb" :style="{ backgroundImage: `url(${imgUrl('top5')})`, backgroundPosition: `${(k + 1) * 20}% 0` }"></span>
+        <p v-if="resultsRequested && !candidates.length && !lightingBusy && !lightingError" class="no-accepted-results">{{isLunarLanding ? 'No accepted sites have a matching low-Sun window in this search period. Try another lunar reference time.' : 'No candidates passed the field-test screen for this location.'}}</p>
+        <div v-if="candidates.length" class="results-drawer" :class="{ 'is-hidden': resultsHidden }">
+          <button class="results-toggle" :aria-expanded="!resultsHidden" :aria-label="resultsHidden ? 'Show candidates' : 'Hide candidates'" @click="resultsHidden = !resultsHidden">{{ resultsHidden ? '‹' : '›' }}</button>
+          <div class="cand-list" aria-label="Top-5 Earth candidates" :inert="resultsHidden">
+          <p class="screen-caption">Accepted by the field-test screen. Landing safety has not been assessed.</p>
+          <button v-for="c in candidates" :key="c.rank" class="cand-card" :class="{ sel: earthMatched && matchedAnalog.name.startsWith('#' + c.rank + ' ') }" @click="pickCandidate(c)">
             <span class="cand-main">
-              <b>#{{ c.rank }} {{ earthRegionName(c.region) }}</b>
-              <span class="chip" :class="statusClass(c.status)">{{ statusText(c.status) }}</span>
-              <small>cos {{ c.cosine.toFixed(2) }} · slope p90 {{ c.earth_slope_p90_deg ?? 'n/a' }}°</small>
-              <small v-if="c.breaks_down" class="cand-break">{{ c.breaks_down.slice(0, 110) }}{{ c.breaks_down.length > 110 ? '…' : '' }}</small>
+              <span class="candidate-card-top">
+                <span class="candidate-ranking-score" aria-label="Ranking score"><strong>{{ rankingScore(c) != null ? (rankingScore(c)! * 100).toFixed(1) : '—' }}</strong><span>/100</span></span>
+                <span class="chip" :class="statusClass(c.field_test?.decision)" title="Field-test screening result; landing safety has not been assessed.">{{ statusText(c.field_test?.decision) }}</span>
+              </span>
+              <b class="candidate-place-name">#{{ c.rank }} {{ candidateName(c) }}</b>
+              <small class="candidate-place-location">{{ candidateLocation(c) }}</small>
+              <small class="candidate-origin-distance">{{ c.distance_km != null ? Math.round(c.distance_km).toLocaleString('en-US') + ' km from ' + originCity.name : 'Distance unavailable' }}</small>
+              <small v-if="c.lighting?.windows[0]" class="candidate-light-window"><strong>Next light match</strong> {{lightingDate(c.lighting.windows[0].start_local)}} – {{c.lighting.windows[0].start_local.slice(0,10)===c.lighting.windows[0].end_local.slice(0,10)?c.lighting.windows[0].end_local.slice(11,16):lightingDate(c.lighting.windows[0].end_local)}}<span>{{c.lighting.windows[0].timezone}} · {{c.lighting.windows[0].duration_minutes}} min</span></small>
             </span>
           </button>
+        </div>
         </div>
 
         <!-- Bottom Left: Chat Bubble pointing directly to Earth's 'i' button -->
         <div v-if="showRightInfo" class="info-callout-popover">
           <div class="popover-card">
+            <button class="recenter-btn" aria-label="Center on selected Earth candidate" title="Center on candidate" @click="rightGlobe?.pointOfView({ lat: matchedAnalog.lat, lng: matchedAnalog.lng, altitude: 0.15 }, 1000)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
             <div class="popover-line">Long <strong>{{ matchedAnalog.lng }}</strong></div>
             <div class="popover-line">Lat <strong>{{ matchedAnalog.lat }}</strong></div>
             <div class="popover-title"><strong>{{ matchedAnalog.name }}</strong></div>
-            <div class="popover-meta">{{ matchedAnalog.region }}</div>
-
-            <div class="popover-divider"></div>
-
-            <img v-if="isMars && candidates.length" :src="imgUrl('top5')" alt="Top-5 Earth candidates" style="width:100%;border-radius:6px;margin-bottom:6px" />
+            <div class="popover-meta">{{ statusText(matchedStatus) }}</div>
             <div class="analog-match-badge-wrap">
-              <span class="analog-score-pill" :class="statusClass(matchedStatus)" title="Composite of image similarity, slope agreement and the judge's vote. A heuristic, not a probability of being a true analog.">{{ searchPool === 'global' ? 'Image retrieval only' : `Evidence score ${matchedAnalog.matchScore}` }}</span>
-              <span v-if="matchedVote === 'different'" class="rejected-note">Judge: not the same landform</span>
+              <span class="analog-score-pill" :class="statusClass(matchedStatus)" title="Uncalibrated heuristic; not a probability of a true analog.">{{ selectedCandidate && rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence score' }} {{ matchedAnalog.matchScore }}</span>
             </div>
-
-            <div class="analog-metrics-list">
-              <template v-if="activeCandidate?.retrieval_only">
-                <div class="metric-row"><span class="metric-lbl">Earth slope (30 m):</span><span class="metric-val">{{ activeCandidate.earth_terrain?.slope_p90 ?? 'n/a' }}° p90</span></div>
-                <div class="metric-row"><span class="metric-lbl">Regional day LST:</span><span class="metric-val">{{ activeCandidate.environment?.lst_modis?.lst_day_mean_c ?? 'n/a' }} °C</span></div>
-                <div class="metric-row"><span class="metric-lbl">Regional mean wind:</span><span class="metric-val">{{ activeCandidate.environment?.wind_era5?.stats?.mean_speed_ms?.toFixed(2) ?? 'n/a' }} m/s</span></div>
-                <small>Historical regional context; not current weather. Slope baseline differs from the 10 m comparison.</small>
-              </template>
-              <div class="metric-row">
-                <span class="metric-lbl">Slope:</span>
-                <span class="metric-val">{{ matchedAnalog.slope }}</span>
-              </div>
-              <div class="metric-row">
-                <span class="metric-lbl">Why retrieved:</span>
-                <span class="metric-val">{{ matchedAnalog.geology }}</span>
-              </div>
-            </div>
+            <button v-if="selectedCandidateIndex >= 0" class="earth-preview earth-preview-button" :aria-label="`Inspect ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}" @click="openEarthInspector"><span>Inspect candidate ↗</span></button>
           </div>
           <!-- Pointer tail pointing down to Earth's 'i' icon below -->
           <div class="popover-pointer-down"></div>
@@ -948,9 +1039,10 @@ onBeforeUnmount(() => {
           <div class="info-circle-bold">i</div>
         </button>
 
+        <button class="bottom-icon-btn split-view-btn" title="50/50 split view" aria-label="Restore 50/50 split view" @click="restoreSplitView"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="9" height="16" rx="1"/><rect x="13" y="4" width="9" height="16" rx="1"/></svg></button>
         <button
           class="bottom-icon-btn bottom-right-icon"
-          :title="fullscreenPane === 'right' ? 'Collapse' : 'Expand'"
+          title="Expand" aria-label="Expand Earth view"
           @click="toggleFullscreen('right')"
         >
           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round">
@@ -960,6 +1052,80 @@ onBeforeUnmount(() => {
             <line x1="3" y1="21" x2="10" y2="14"></line>
           </svg>
         </button>
+        <Transition name="roi-open">
+          <div v-if="earthInspectorOpen && selectedCandidate" class="earth-inspector">
+            <header class="earth-inspector-header">
+              <button class="earth-back" @click="closeEarthInspector"><img :src="PLANET_TEXTURES.earth.globe" alt="" draggable="false" /> Back</button>
+              <div><strong>{{ matchedAnalog.name.replace(/_/g, ' ') }}</strong><span class="earth-inspector-status" :class="statusClass(matchedStatus)">{{ statusText(matchedStatus) }}</span></div>
+            </header>
+            <div class="earth-inspector-content">
+              <p class="earth-context">Comparing the original {{ footprint }} m planetary ROI with a precomputed Earth candidate. The crop preview does not change these results.</p>
+              <div class="earth-comparison" :class="{ compact: earthInspectorTab === 'compare' }">
+                <figure><img :src="imgUrl('query')" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>Original ROI: {{ footprint }} m</span></figcaption></figure>
+                <figure><div class="earth-comparison-candidate" role="img" :aria-label="`Image of ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}"></div><figcaption><strong>Earth · {{ candidateName(selectedCandidate) }}</strong><span>{{ runId.endsWith('_global') ? 'Catalog ROI: 250 m' : 'Candidate footprint: not provided' }}</span></figcaption></figure>
+              </div>
+              <nav class="earth-tabs" aria-label="Candidate information">
+                <button v-for="tab in (['overview', 'compare', 'lighting', 'terrain', 'sources'] as const)" v-show="tab !== 'lighting' || isLunarLanding" :key="tab" :class="{ active: earthInspectorTab === tab }" @click="earthInspectorTab = tab">{{ tab === 'sources' ? 'Evidence & sources' : tab === 'compare' ? 'Compare candidates' : tab === 'lighting' ? 'Light & test dates' : tab === 'terrain' ? 'Terrain' : 'Overview' }}</button>
+              </nav>
+              <section v-if="earthInspectorTab === 'overview'" class="earth-detail">
+                <h2>Candidate overview</h2>
+                <button class="compare-candidates-cta" @click="earthInspectorTab = 'compare'">Compare all 5 Earth candidates →</button>
+                <p>Rank {{ selectedCandidate.rank }} by {{ rankingScore(selectedCandidate) != null ? 'multi-factor score' : 'image similarity' }}. Field-test screening: <strong>{{ statusText(matchedStatus) }}</strong>.</p>
+                <RankingExplanation :candidate="selectedCandidate" :candidates="candidates" />
+                <p v-if="selectedCandidate.distance_km != null">{{ Math.round(selectedCandidate.distance_km).toLocaleString() }} km great-circle distance from {{ originCity.name }}, {{ originCity.country }}.</p>
+                <p>Compare terrain, regional surface temperature, wind and reported rock types using the charts. Each chart shows its source and measurement scale.</p>
+                <p class="earth-muted">Results are research candidates based on images and environmental data. Field-test screening does not replace a site survey.</p>
+                <dl><div><dt>Location</dt><dd>{{ selectedCandidate.lat }}°, {{ selectedCandidate.lon }}°</dd></div><div><dt>Human verification</dt><dd>Not provided</dd></div></dl>
+              </section>
+              <section v-else-if="earthInspectorTab === 'compare'" class="earth-detail">
+                <CandidateComparison :candidates="candidates" :active-region="selectedCandidate.region" :target-name="targetInfo.name" :target-terrain="terrainMeasurement?.comparison" :target-materials="(currentQuery()?.info as any)?.environment?.lithology" />
+              </section>
+              <section v-else-if="earthInspectorTab === 'lighting'" class="earth-detail">
+                <LunarLightingPanel :plan="lightingPlan" :busy="lightingBusy" :error="lightingError" :query-id="selectedQuery" :target-name="targetInfo.name" :candidate="selectedCandidate" :lunar-time="lunarReferenceTime" :start-date="earthSearchStart" :controls="false" />
+                <button class="compare-candidates-cta" @click="showLightingControls = true">Change lunar reference or search dates</button>
+              </section>
+              <section v-else-if="earthInspectorTab === 'terrain'" class="earth-detail">
+                <h2>Terrain measurements</h2>
+                <div class="terrain-scale-tabs" role="group" aria-label="Terrain measurement scale">
+                  <button :class="{ active: terrainScale === 'common' }" @click="terrainScale = 'common'">Compare · 30 m grid</button>
+                  <button :class="{ active: terrainScale === 'native' }" @click="terrainScale = 'native'">Source resolution</button>
+                </div>
+                <p v-if="terrainScale === 'common'">DEM-derived values on a shared 30 m grid, using a centered 240 × 240 m square within each 250 m ROI. Finer DEMs are area-averaged; coarse DEMs are not upsampled.</p>
+                <p v-else>Values at each DEM's source resolution. Different grids resolve different terrain detail; these values are not directly interchangeable.</p>
+                <div class="earth-table-wrap"><table class="terrain-comparison-table">
+                  <thead><tr><th>Measurement</th><th>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }}</th><th>Earth</th><th v-if="terrainScale === 'common'">Absolute difference</th></tr></thead>
+                  <tbody><tr v-for="row in terrainRows" :key="row.key"><th>{{ row.label }}<small>{{ row.detail }}</small></th><td>{{ terrainValue(planetaryTerrainStats, row.key, row.unit) }}</td><td>{{ terrainValue(earthTerrainStats, row.key, row.unit) }}</td><td v-if="terrainScale === 'common'">{{ terrainDifference(row.key, row.unit) }}</td></tr></tbody>
+                </table></div>
+                <div class="terrain-source-grid">
+                  <article v-for="(data, index) in [planetaryTerrainStats, earthTerrainStats]" :key="index"><strong>{{ index === 0 ? (currentPlanet === 'moon' ? 'Moon' : 'Mars') : 'Earth' }} · {{ data ? 'DEM-derived' : 'Unavailable at this scale' }}</strong><template v-if="data"><p>{{ data.sampled_width_m.toFixed(0) }} m sampled window · {{ data.posting_m.toFixed(1) }} m grid<br>{{ (data.valid_fraction * 100).toFixed(1) }}% valid elevation samples</p><a :href="data.source_url" target="_blank" rel="noopener">{{ data.source.includes('COPERNICUS') ? 'Copernicus GLO-30' : data.source.includes('REMA') ? 'REMA' : data.source }} ↗</a></template><p v-else>A DEM with sufficient resolution and coverage is needed. Values are not inferred from optical appearance.</p></article>
+                </div>
+                <section v-if="!planetaryTerrainStats && regionalTerrain" class="regional-terrain-context">
+                  <h3>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · regional terrain estimate</h3>
+                  <p>The local ROI lacks a suitable high-resolution DEM. The values below describe a <strong>10 km region</strong> around the site, not the 250 m ROI. They are excluded from the difference column and ranking.</p>
+                  <dl><div v-for="row in terrainRows" :key="row.key"><dt>{{ row.label }}</dt><dd>{{ terrainValue(regionalTerrain, row.key, row.unit) }}</dd></div></dl>
+                  <p>{{ regionalTerrain.posting_m }} m analysis grid · {{ (regionalTerrain.valid_fraction * 100).toFixed(1) }}% valid samples. <a :href="regionalTerrain.source_url" target="_blank" rel="noopener">{{ regionalTerrain.source }} ↗</a></p>
+                </section>
+                <p class="earth-muted">DEM roughness describes resolved terrain relief, not individual rocks. Copernicus and REMA are surface models and can include vegetation or structures. These display measurements do not change the saved ranking score.</p>
+              </section>
+              <section v-else class="earth-detail">
+                <h2>Evidence & sources</h2>
+                <p v-if="terrainMeasurement">The Terrain tab shows DEM measurements. Refreshed global rankings use slope only when both ROIs have coordinate-matched DEMs on the common 30 m grid.</p>
+                <div v-if="selectedCandidate.score_components" class="earth-table-wrap"><table><thead><tr><th>Ranking factor</th><th>Weight</th><th>Score</th><th>Confidence</th></tr></thead><tbody><tr v-for="(part, key) in selectedCandidate.score_components" :key="key"><th>{{ componentNames[key] ?? key }}</th><td>{{ Math.round(part.weight * 100) }}%</td><td>{{ part.value != null ? part.value.toFixed(3) : 'No data' }}</td><td>{{ Math.round(part.confidence * 100) }}%</td></tr></tbody></table><p>Score = sum(weight * confidence * factor score) / sum(weight * confidence), over available factors. Relative scores depend on the candidate pool.</p></div>
+                <p v-if="selectedCandidate.final_score != null">Final score = 0.92 * composite + 0.08 * (1 - distance_km / 20015). Origin: {{ originCity.name }}.</p>
+                <dl><div><dt>Image similarity</dt><dd>{{ selectedCandidate.cosine.toFixed(3) }} cosine · model output</dd></div><div><dt>{{ rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence index' }}</dt><dd>{{ matchedAnalog.matchScore }} · uncalibrated heuristic, not a probability</dd></div><div><dt>Model assessment</dt><dd>{{ selectedCandidate.vote ? selectedCandidate.vote + (selectedCandidate.agreement != null ? ` (${Math.round(selectedCandidate.agreement * 100)}% agreement)` : '') : 'Not available' }}</dd></div><div><dt>Planetary source</dt><dd>{{ currentQuery()?.info.product || 'Product not provided' }}</dd></div><div><dt>Earth imagery source</dt><dd>Not provided in this result</dd></div><div><dt>Run</dt><dd>{{ runId }}</dd></div></dl>
+                <p v-if="selectedCandidate.reasoning?.reason">{{ selectedCandidate.reasoning.reason }}</p><p class="earth-muted">Results are model-generated proposals, not verified analogs.</p>
+              </section>
+            </div>
+          </div>
+        </Transition>
+        <div v-if="showLightingControls && isLunarLanding" class="lighting-settings-overlay" role="dialog" aria-label="Lunar lighting test dates" aria-modal="true" @keydown.esc="showLightingControls=false">
+          <button class="close-lighting-settings" @click="showLightingControls=false">Close</button>
+          <LunarLightingPanel :plan="lightingPlan" :busy="lightingBusy" :error="lightingError" :query-id="selectedQuery" :target-name="targetInfo.name" :lunar-time="lunarReferenceTime" :start-date="earthSearchStart" @search="searchLighting" />
+        </div>
+        <div v-if="showCaveRecommendations && isBaseMission" class="cave-recommendations-overlay" role="dialog" aria-label="Cave and lava-tube recommendations" aria-modal="true" @keydown.esc="showCaveRecommendations=false">
+          <button class="close-lighting-settings" @click="showCaveRecommendations=false">Close</button>
+          <BaseCavePanel :body="currentPlanet" :query-id="selectedQuery" :origin-lat="originCity.lat" :origin-lon="originCity.lon" :origin-name="originCity.name" />
+        </div>
       </section>
     </main>
     <aside v-if="showValidation" class="validation-drawer" role="dialog" aria-label="Validation and evidence">
@@ -975,7 +1141,7 @@ onBeforeUnmount(() => {
         <h3>L1 · Model-independent measurement</h3>
         <p class="vmuted">Is the Top-5 closer to the Mars patch than random patches in classical texture, orientation and wavelength measurements? (permutation test)</p>
         <table v-if="validation.morph"><tr><th>Mars site</th><th>p</th><th>Result</th></tr>
-          <tr v-for="r in validation.morph.results" :key="r.query_id"><td>{{ r.query_id.replace(/_/g, ' ') }}</td><td>{{ r.permutation_p }}</td><td>{{ r.passes_preregistered ? 'passes' : 'does not pass' }}</td></tr></table>
+          <tr v-for="r in validation.morph.results" :key="r.query_id"><td>{{ prettyName(r.query_id) }}</td><td>{{ r.permutation_p }}</td><td>{{ r.passes_preregistered ? 'passes' : 'does not pass' }}</td></tr></table>
         <h3>Falsification tests</h3>
         <p class="vmuted">Does the Top-5 survive brightness changes and blur, and change when the image phase is scrambled?</p>
         <table v-if="validation.falsify"><tr><th>Test</th><th>Mean overlap</th><th>Result</th></tr>
@@ -999,14 +1165,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.catalog-drawer { position:fixed; z-index:210; top:64px; right:0; bottom:0; width:min(390px, 100%); padding:16px; background:white; color:#111; box-shadow:-4px 0 18px #0003; display:flex; flex-direction:column; gap:10px; overflow:auto; font-size:14px; }
-.catalog-drawer header { display:flex; justify-content:space-between; gap:10px; }
-.catalog-drawer input { padding:10px; width:100%; border:1px solid #aaa; border-radius:6px; }
-.catalog-list { display:grid; gap:8px; }
-.catalog-list button { display:grid; gap:4px; text-align:left; padding:10px; background:#faf5ff; border:1px solid #d8b4fe; border-radius:8px; cursor:pointer; }
-.catalog-detail { display:grid; gap:8px; padding:10px; border:1px solid #a855f7; border-radius:8px; }
-.catalog-detail small { overflow-wrap:anywhere; }
-.catalog-preview { width:100%; max-width:250px; aspect-ratio:1; image-rendering:pixelated; align-self:center; }
 .terratwinn-app {
   width: 100%;
   height: 100vh;
@@ -1025,31 +1183,24 @@ onBeforeUnmount(() => {
 
 /* ================== TOP BAR ================== */
 .top-bar {
-  height: auto;
+  height: 58px;
   min-height: 58px;
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  column-gap: 20px;
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 24px;
+  padding: 0 24px;
   border-bottom: 2px solid #000000;
   background: #ffffff;
   position: relative;
   z-index: 50;
 }
 
+
 .top-left {
   display: flex;
-  grid-column: 1;
-  grid-row: 1;
-  flex-wrap: nowrap;
   align-items: center;
-  gap: 16px;
+  gap: 32px;
 }
-.top-left > select { min-width:0; max-width:200px; text-overflow:ellipsis; }
-.top-bar .menu-item-btn { white-space:nowrap; font-size:16px; }
 
 .menu-item-btn {
   background: transparent;
@@ -1067,11 +1218,9 @@ onBeforeUnmount(() => {
 }
 
 .top-center {
-  position: static;
-  grid-column: 2;
-  grid-row: 1;
-  min-width: 0;
-  text-align: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .brand-title {
@@ -1084,15 +1233,9 @@ onBeforeUnmount(() => {
 
 .top-right {
   display: flex;
-  grid-column: 3;
-  grid-row: 1;
-  justify-content: flex-end;
-  gap: 20px;
-  min-width: 0;
   align-items: center;
 }
 
-.dataset-select { max-width:170px; }
 .export-capsule-btn {
   background: #000000;
   color: #ffffff;
@@ -1120,7 +1263,6 @@ onBeforeUnmount(() => {
 /* ================== MAIN SPLIT VIEWPORT ================== */
 .split-viewport {
   flex: 1;
-  min-height: 0;
   display: flex;
   width: 100%;
   height: calc(100vh - 58px);
@@ -1448,7 +1590,6 @@ onBeforeUnmount(() => {
   background: #ffffff;
   z-index: 45;
   overflow: hidden;
-  animation: fadeIn 0.25s ease;
 }
 
 @keyframes fadeIn {
@@ -1629,6 +1770,12 @@ onBeforeUnmount(() => {
 .real-card { display:grid; gap:6px; max-width:80%; padding:16px 20px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; text-align:center; }
 .real-card span { font-size:1.1rem; font-weight:700; }
 .real-card small { color:#64748b; }
+.real-card { max-height: 92%; overflow-y: auto; }
+.real-card a { font-size: 13px; color: #3f6552; }
+.terrain-preview { display: block; width: min(100%, 280px); height: auto; aspect-ratio: 1; margin: 4px auto; object-fit: contain; }
+.slope-scale { display: flex; justify-content: space-between; }
+.real-card .slope-scale span { font-size: inherit; font-weight: inherit; }
+.transect-title .crop-note, .transect-title .transect-sub { display: block; }
 /* ---- search regions overlay ---- */
 .regions-panel { position:absolute; left:24px; bottom:72px; z-index:20; display:grid; gap:8px; max-width:min(320px, 60%); }
 .regions-toggle { justify-self:start; border:1.5px solid #000; background:#fff; border-radius:999px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer; }
@@ -1641,7 +1788,7 @@ onBeforeUnmount(() => {
 /* ---- responsive ---- */
 .top-left { min-width:0; }
 .menu-radios { display:grid; gap:4px; padding:4px 0; }
-.api-line { display:block; text-align:center; font-size:11px; color:#64748b; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.api-line { display:block; text-align:center; font-size:11px; color:#64748b; max-width:40vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .right-half .regions-panel { top:64px; bottom:auto; }
 @media (max-width: 900px) {
   .terratwinn-app { height:auto; min-height:100vh; overflow:visible; }
@@ -1690,27 +1837,13 @@ onBeforeUnmount(() => {
 .status-pill-matched.rejected { background: #f1f5f9; border-color: #cbd5e1; }
 .analog-score-pill.rejected { background: #cbd5e1; }
 .rejected-note { margin-left: 6px; font-size: 11.5px; color: #64748b; }
-@media (max-width: 1200px) {
-  .top-bar { grid-template-columns:minmax(0,1fr) auto; row-gap:6px; }
-  .top-center { grid-column:1 / -1; grid-row:1; justify-self:center; }
-  .top-left { grid-column:1; grid-row:2; flex-wrap:wrap; }
-  .top-right { grid-column:2; grid-row:2; gap:12px; }
-}
 @media (max-width: 900px) {
   .menu-panel { min-width: 220px; }
-  .top-bar { height: auto; min-height: 0; padding: 6px 12px; row-gap: 4px; column-gap:12px; }
-  .top-center { width:auto; text-align:center; }
+  .top-bar { height: auto; min-height: 0; flex-wrap: wrap; padding: 6px 12px; row-gap: 4px; }
+  .top-center { position: static !important; transform: none !important; order: -1; width: 100%; text-align: center; }
   .top-left { flex-wrap: wrap; gap: 6px 14px; }
   .top-left button.menu-item-btn, .top-left select.menu-item-btn { display: inline-block; font-size: 15px; }
   .viewport-half { height: calc(100vh - 100px); }
-}
-@media (max-width:560px) {
-  .top-left { grid-column:1 / -1; grid-row:2; }
-  .top-right { grid-column:1 / -1; grid-row:3; justify-content:space-between; flex-wrap:wrap; }
-  .top-left > select { max-width:160px; }
-  .menu-panel { min-width:0; width:min(300px, calc(100vw - 24px)); }
-  .menu-panel label { flex-wrap:wrap; }
-  .menu-panel select { max-width:100%; }
 }
 
 .status-pill-matched.ok { background: #dcfce7; border-color: #86efac; }
@@ -1726,4 +1859,219 @@ onBeforeUnmount(() => {
 .chip { display: inline-block; width: fit-content; padding: 0 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
 .chip.ok { background: #bbf7d0; } .chip.mid { background: #fde68a; } .chip.bad { background: #e2e8f0; }
 @media (max-width: 900px) { .cand-list { position: static; width: auto; max-height: none; padding: 8px 12px; } }
+</style>
+
+<style scoped>
+.site-search { width: min(260px, 48%); position: relative; font-size: 14px; }
+.site-search-field { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 999px; background: #050505; box-shadow: 0 3px 14px #0003; color: white; }
+.site-search-field span { font-size: 24px; line-height: 1; }
+.site-search input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; font: inherit; color: white; }
+.site-search-clear { flex: none; border: 0; padding: 0 2px; background: transparent; color: #bcbcbc; font-size: 22px; line-height: 1; cursor: pointer; }
+.site-search-clear:hover, .site-search-clear:focus-visible { color: white; }
+.site-search input::placeholder { color: #bcbcbc; opacity: 1; }
+.site-search-results { position: absolute; top: calc(100% + 5px); width: 100%; background: #111; border-radius: 12px; box-shadow: 0 5px 18px #0005; max-height: min(252px, 55vh); overflow-y: auto; overscroll-behavior: contain; }
+.site-search-results button { display: block; width: 100%; border: 0; padding: 11px 14px; line-height: 20px; text-align: left; background: #111; cursor: pointer; font: inherit; line-height: 20px; color: white; }
+.site-search-results button:hover, .site-search-results button:focus { background: #333; }
+.site-search-results p { margin: 0; padding: 12px 14px; color: #bcbcbc; }
+</style>
+
+<style scoped>
+/* Light halos separate map controls from changing surface imagery. */
+.celestial-toggle,
+.site-search-field,
+.regions-toggle,
+.inspect-roi-action-btn,
+.back-globe-btn,
+.layer-pill-btn,
+.find-analogs-btn,
+.cand-card {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .8), 0 0 14px 4px rgba(255, 255, 255, .6), 0 2px 8px rgba(0, 0, 0, .24);
+}
+.bottom-icon-btn {
+  filter: drop-shadow(0 0 3px white) drop-shadow(0 0 7px rgba(255, 255, 255, .9));
+}
+.viewport-half button:focus-visible,
+.site-search-field:focus-within {
+  outline: 2px solid #78baff;
+  outline-offset: 3px;
+}
+</style>
+
+<style scoped>
+.roi-preview { position: relative; display: block; width: 100%; height: 130px; padding: 0; overflow: hidden; border: 0; border-radius: 8px; background: #292929; color: white; cursor: pointer; text-align: left; }
+.roi-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.roi-preview > span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent, rgba(0,0,0,.85)); font-size: 12px; font-weight: 600; }
+.roi-preview:focus-visible { outline: 2px solid #78baff; outline-offset: 3px; }
+</style>
+
+<style scoped>
+.popover-card { position: relative; }
+.recenter-btn { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; display: grid; place-items: center; padding: 4px; border: 0; border-radius: 6px; background: #000; color: white; cursor: pointer; }
+.recenter-btn svg { width: 24px; height: 24px; }
+.recenter-btn:hover { background: #333; }
+.recenter-btn:focus-visible { outline: 2px solid #78baff; outline-offset: 2px; }
+</style>
+
+<style scoped>
+.roi-globe-return { position: absolute; top: 16px; left: 16px; z-index: 5; display: flex; align-items: center; gap: 8px; height: 44px; padding: 4px 14px 4px 4px; border: 2px solid white; border-radius: 999px; background: #111; color: white; font: inherit; font-size: 14px; font-weight: 600; box-shadow: 0 0 12px rgba(255,255,255,.75); cursor: pointer; }
+.roi-globe-return img { width: 32px; height: 32px; display: block; object-fit: cover; border-radius: 50%; }
+.roi-globe-return:focus-visible { outline: 2px solid #78baff; outline-offset: 3px; }
+.roi-toolbar { flex-shrink: 0; border-top: 1px solid #e2e8f0; }
+.roi-open-enter-active, .roi-open-leave-active { transition: transform .38s cubic-bezier(.2,.8,.2,1), opacity .38s ease; transform-origin: 15% 85%; }
+.roi-open-enter-from, .roi-open-leave-to { transform: scale(.84); opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .roi-open-enter-active, .roi-open-leave-active { transition: none; } }
+@media (max-width: 600px) { .roi-toolbar { height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; padding: 8px 12px; } }
+</style>
+
+
+<style scoped>
+.roi-surface-layer:has(.crop-frame) { display: flex; align-items: center; justify-content: center; }
+.crop-frame { position: relative; height: 100%; max-width: 100%; aspect-ratio: 1; }
+.crop-frame img { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; }
+.crop-selection { position: absolute; box-sizing: border-box; border: 2px solid #ffeb3b; box-shadow: 0 0 8px #fff, 0 0 2px 1px #000; cursor: move; touch-action: none; }
+.crop-size { position: absolute; left: 4px; bottom: 4px; padding: 2px 4px; border-radius: 3px; background: #000b; color: white; font-size: 11px; white-space: nowrap; pointer-events: none; }
+.crop-handle { position: absolute; width: 14px; height: 14px; border: 2px solid #222; border-radius: 50%; background: #ffeb3b; box-shadow: 0 0 6px white; touch-action: none; }
+.crop-handle.nw { top: -8px; left: -8px; cursor: nwse-resize; }
+.crop-handle.ne { top: -8px; right: -8px; cursor: nesw-resize; }
+.crop-handle.sw { bottom: -8px; left: -8px; cursor: nesw-resize; }
+.crop-handle.se { bottom: -8px; right: -8px; cursor: nwse-resize; }
+.crop-note { color: #64748b; font-size: 11px; }
+</style>
+
+<style scoped>
+.crop-guides { position: absolute; inset: 0; pointer-events: none; }
+.crop-guides span { position: absolute; display: block; background: #ffeb3b; box-shadow: 0 0 6px #fff, 0 0 2px #000; }
+.guide-horizontal { height: 2px; transform: translateY(-50%); }
+.guide-vertical { width: 2px; transform: translateX(-50%); }
+</style>
+
+<style scoped>
+.crop-dimension-dialog { position: absolute; inset: 0; z-index: 60; margin: auto; width: min(290px, calc(100% - 32px)); height: fit-content; box-sizing: border-box; padding: 16px; border: 1px solid #ddd; border-radius: 16px; background: white; color: #111; box-shadow: 0 12px 50px #0005; }
+.dimension-inputs { display: flex; align-items: center; gap: 8px; }
+.dimension-inputs input { min-width: 0; width: 0; flex: 1; }
+.crop-dimension-dialog h2 { margin: 0 0 12px; font-size: 20px; }
+.crop-dimension-dialog p { font-size: 13px; }
+.crop-dimension-dialog label { display: grid; gap: 6px; margin-top: 14px; font-size: 14px; }
+.crop-dimension-dialog input { padding: 10px; border: 1px solid #aaa; border-radius: 6px; font: inherit; }
+.dimension-error { color: #b91c1c; }
+.dimension-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.dimension-actions button { padding: 8px 16px; border-radius: 20px; border: 1px solid #bbb; cursor: pointer; }
+.dimension-actions button[type=submit] { background: #111; color: white; }
+</style>
+
+<style scoped>
+@media (min-width: 901px) {
+.left-half:not(.is-fullscreen):not(.pane-expanded) { flex: 0 0 max(0px, calc(var(--left-pane-width) - 4px)); transition: flex-basis 240ms cubic-bezier(.2,.8,.2,1); min-width: 0; border-right: 0; }
+.is-dragging-divider .left-half { transition: none !important; }
+.right-half:not(.is-fullscreen):not(.pane-expanded) { flex: 1 1 0; min-width: 0; }
+.pane-expanded { flex: 1 1 100%; }
+.pane-divider { flex: 0 0 8px; background: #111; cursor: col-resize; touch-action: none; display: grid; place-items: center; z-index: 50; }
+.pane-divider span { width: 3px; height: 42px; border-radius: 4px; background: #aaa; }
+.pane-divider:hover span, .pane-divider:focus-visible span { background: white; }
+.pane-restore { position: absolute; z-index: 60; top: 50%; transform: translateY(-50%); width: 30px; height: 56px; border: 0; background: #111; color: white; font-size: 28px; cursor: col-resize; touch-action: none; display: grid; place-items: center; user-select: none; }
+.split-viewport.collapsed-left::after, .split-viewport.collapsed-right::after { content: ''; position: absolute; top: 0; bottom: 0; width: 4px; background: rgba(255,255,255,.85); box-shadow: 0 0 12px 4px rgba(255,255,255,.7); z-index: 55; pointer-events: none; }
+.split-viewport.collapsed-left::after { left: 0; }
+.split-viewport.collapsed-right::after { right: 0; }
+.pane-restore { box-shadow: 0 0 0 1px rgba(255,255,255,.8), 0 0 16px 4px rgba(255,255,255,.7); }
+.pane-restore:focus-visible { outline: 2px solid #78baff; outline-offset: 3px; }
+.pane-restore.left { left: 0; border-radius: 0 8px 8px 0; }
+.pane-restore.right { right: 0; border-radius: 8px 0 0 8px; }
+}
+@media (max-width: 900px) { .pane-divider, .pane-restore { display: none; } }
+@media (prefers-reduced-motion: reduce) { .left-half { transition: none !important; } }
+</style>
+
+<style scoped>
+.results-drawer { position: absolute; right: 12px; top: 64px; bottom: 76px; width: min(270px, calc(100% - 52px)); z-index: 30; transition: transform .25s ease; pointer-events: none; }
+.results-drawer.is-hidden { transform: translateX(calc(100% + 12px)); }
+.results-drawer .cand-list { position: static; width: 100%; max-height: 100%; padding: 3px; box-sizing: border-box; overflow-y: auto; display: grid; gap: 7px; pointer-events: auto; }
+.results-toggle { position: absolute; left: -25px; top: 50%; transform: translateY(-50%); width: 25px; height: 48px; padding: 0; border: 1px solid #ddd; border-radius: 8px 0 0 8px; background: #111; color: white; font-size: 25px; cursor: pointer; pointer-events: auto; box-shadow: 0 0 8px #fff9; }
+.results-drawer .cand-card { padding: 7px; gap: 8px; box-shadow: 0 1px 4px #0002; align-items: center; }
+.results-drawer .cand-thumb { width: 44px; height: 44px; }
+.results-drawer .cand-main { font-size: 11px; gap: 3px; }
+.results-drawer .cand-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results-drawer .chip { font-size: 10px; }
+@media (prefers-reduced-motion: reduce) { .results-drawer { transition: none; } }
+</style>
+
+<style scoped>
+.earth-preview { width: 100%; height: 130px; margin-top: 10px; border-radius: 8px; background-size: 600% 100%; background-repeat: no-repeat; background-color: #292929; }
+</style>
+
+<style scoped>
+.split-view-btn { right: 66px; color: #000; }
+</style>
+
+<style scoped>
+.earth-preview-button { display: block; border: 0; position: relative; overflow: hidden; cursor: pointer; color: white; text-align: left; }
+.earth-preview-button span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent,#000d); font-size: 12px; font-weight: 600; }
+.earth-inspector { position: absolute; inset: 0; z-index: 45; background: #f7f7f5; color: #17191b; display: flex; flex-direction: column; overflow: hidden; }
+.earth-inspector-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #e1e4e8; background: white; }
+.earth-inspector-header > div { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.earth-inspector-status { padding: 3px 8px; border-radius: 30px; background: #fce9a5; font-size: 11px; }
+.earth-inspector-status.bad { background: #e2e8f0; } .earth-inspector-status.ok { background: #bbf7d0; }
+.earth-back { display: flex; align-items: center; gap: 7px; border: 0; border-radius: 99px; padding: 4px 12px 4px 4px; background: #111; color: white; cursor: pointer; }
+.earth-back img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.earth-inspector-content { overflow-y: auto; padding: 18px; }
+.earth-context, .earth-muted { color: #617080; font-size: 12px; line-height: 1.5; }
+.earth-comparison { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.earth-comparison figure { margin: 0; min-width: 0; background: white; border: 1px solid #e1e4e8; border-radius: 10px; overflow: hidden; }
+.earth-comparison figure > img, .earth-comparison-candidate { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background-color: #222; }
+.earth-comparison-candidate { background-size: 600% 100%; background-repeat: no-repeat; }
+.earth-comparison figcaption { padding: 9px; display: grid; gap: 4px; font-size: 12px; overflow-wrap: anywhere; }
+.earth-comparison figcaption span { color: #617080; font-size: 11px; }
+.earth-tabs { display: flex; gap: 5px; overflow-x: auto; margin-top: 18px; border-bottom: 1px solid #dce1e5; }
+.earth-tabs button { flex: none; padding: 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #647080; cursor: pointer; }
+.earth-tabs button.active { border-color: #111; color: #111; font-weight: 700; }
+.earth-detail { padding: 8px 0 24px; font-size: 13px; line-height: 1.55; }
+.earth-detail h2 { font-size: 17px; }
+.earth-detail dl { margin: 0; }
+.earth-detail dl div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #e1e4e8; }
+.earth-detail dt { color: #617080; } .earth-detail dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.earth-table-wrap { overflow-x: auto; } .earth-detail table { border-collapse: collapse; width: 100%; text-align: left; } .earth-detail th, .earth-detail td { padding: 8px; border-bottom: 1px solid #ddd; }
+@media (max-width: 500px) { .earth-comparison { grid-template-columns: 1fr; } }
+</style>
+
+<style scoped>
+.transect-header { align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.transect-title { flex: 1 1 240px; min-width: 0; }
+.screen-caption { padding: 8px 10px; margin: 0; border-radius: 8px; background: #fff; color: #475569; font-size: 12px; line-height: 1.5; }
+.no-accepted-results { position: absolute; z-index: 5; top: 90px; right: 20px; max-width: 300px; padding: 16px; background: white; border: 1px solid #cbd5e1; border-radius: 12px; }
+.evidence-description { margin: 6px 0 0; color: #64748b; font-size: 12px; line-height: 1.5; white-space: normal; }
+.transect-metrics { flex-wrap: wrap; gap: 12px; }
+</style>
+
+<style scoped>
+.terrain-scale-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.terrain-scale-tabs button { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font: inherit; cursor: pointer; }
+.terrain-scale-tabs button.active { background: #111; color: white; border-color: #111; }
+.terrain-comparison-table th small { display: block; margin-top: 5px; max-width: 220px; font-size: 11px; line-height: 1.4; font-weight: normal; color: #64748b; }
+.terrain-comparison-table td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.terrain-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 16px; }
+.terrain-source-grid article { padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; }
+.terrain-source-grid p { margin: 7px 0; font-size: 12px; line-height: 1.5; }
+.regional-terrain-context { margin-top: 16px; padding: 14px; border: 1px solid #e2c271; border-radius: 10px; background: #fffaf0; }
+.regional-terrain-context h3 { margin-top: 0; font-size: 15px; }
+.compare-candidates-cta { margin: 2px 0 12px; padding: 10px 14px; border-radius: 8px; border: 1px solid #111827; background: #111827; color: white; font: inherit; cursor: pointer; }
+.earth-comparison.compact figure > img, .earth-comparison.compact .earth-comparison-candidate { height: 140px; aspect-ratio: auto; }
+.earth-tabs { position: sticky; top: -18px; z-index: 3; background: #f8fafc; }
+.results-drawer { width: min(310px, calc(100% - 52px)); }
+.results-drawer .cand-card { display: block; padding: 15px; border-radius: 14px; }
+.results-drawer .cand-main { width: 100%; gap: 6px; }
+.candidate-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 3px; }
+.candidate-ranking-score { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
+.candidate-ranking-score strong { font-size: 30px; line-height: 1.1; font-weight: 750; letter-spacing: -1px; }
+.candidate-ranking-score > span { font-size: 12px; color: #64748b; }
+.results-drawer .candidate-card-top .chip { padding: 4px 9px; font-size: 11px; line-height: 1.4; flex-shrink: 0; }
+.results-drawer .cand-main .candidate-place-name { font-size: 14px; line-height: 1.4; white-space: normal; overflow: visible; }
+.results-drawer .candidate-place-location { font-size: 12px; line-height: 1.5; }
+.results-drawer .candidate-origin-distance { font-size: 11px; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px; }
+.lighting-planner-summary { display:grid;gap:5px;margin:8px 0;padding:10px 12px;border:1px solid #dbeafe;background:#eff6ff;border-radius:8px;font-size:11px;line-height:1.5; }
+.lighting-planner-summary button { justify-self:start;background:white;border:1px solid #94a3b8;border-radius:5px;padding:5px 8px;font:inherit;cursor:pointer; }
+.candidate-light-window { display:grid;gap:3px;padding:8px;border-radius:6px;background:#eff6ff;color:#1e40af!important;line-height:1.5; }
+.candidate-light-window span { font-size:10px; }
+.lighting-settings-overlay { position:fixed;inset:10vh max(16px,calc((100vw - 720px)/2));z-index:200;overflow-y:auto;padding:18px;background:white;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 0 0 100vmax #0008; }
+.close-lighting-settings { display:block;margin:0 0 12px auto;padding:7px 12px;background:#111827;color:white;border:0;border-radius:6px;cursor:pointer; }
+.cave-recommendations-overlay { position:fixed;inset:5vh max(12px,calc((100vw - 860px)/2));z-index:200;overflow-y:auto;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 0 0 100vmax #0008; }
+@media (max-width: 600px) { .terrain-source-grid { grid-template-columns: 1fr; } }
 </style>

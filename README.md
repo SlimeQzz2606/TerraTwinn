@@ -1,7 +1,7 @@
 # TerraTwinn frontend
 
 Standalone Vue 3 + TypeScript + Vite UI extracted from `miuy3107/mars-analysis`,
-branch `tkn`, commit `1eae045`. Scientific data and the Python backend stay on Azure.
+branch `tkn`, commit `d125880`. Scientific data and the Python backend stay on Azure.
 
 ## Local development
 
