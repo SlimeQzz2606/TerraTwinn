@@ -1,0 +1,3274 @@
+{
+  "schema_version": 1,
+  "source": {
+    "file": "planet_sites.txt",
+    "sha256": "7147a38d19d86aa662e3b806949d23c20a00474d07f3eedd167f98548f9b58b4",
+    "note": "User-supplied coordinates and mission claims; no independent positional or mission-status verification."
+  },
+  "coordinate_conventions": {
+    "longitude": "east-positive",
+    "lon": "[-180, 180)",
+    "lon_east": "[0, 360)",
+    "latitude": "source values preserved; latitude type unspecified",
+    "reference_frame": "unspecified; do not interpret as Earth WGS84"
+  },
+  "counts": {
+    "mars": 22,
+    "moon": 39
+  },
+  "sites": [
+    {
+      "id": "viking1_chryse",
+      "source_id": "viking1_chryse",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Viking 1 Chryse",
+      "description": "lowland plains, rocky ejecta, dunes",
+      "lat": 22.48,
+      "lon": -49.97,
+      "lon_east": 310.03,
+      "source_lat": 22.48,
+      "source_lon": -49.97,
+      "source_line_number": 17,
+      "source_coordinate_literals": {
+        "lat": "22.48",
+        "lon": "-49.97"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 1976, NSSDC",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 22.48,
+        "lng": -49.97
+      },
+      "query_info": {
+        "query_id": "viking1_chryse",
+        "planet": "Mars",
+        "lat": 22.48,
+        "lon_east": 310.03,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "viking2_utopia",
+      "source_id": "viking2_utopia",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Viking 2 Utopia",
+      "description": "boulder-strewn plains, periglacial",
+      "lat": 48.269,
+      "lon": 134.01,
+      "lon_east": 134.01,
+      "source_lat": 48.269,
+      "source_lon": 134.01,
+      "source_line_number": 18,
+      "source_coordinate_literals": {
+        "lat": "48.269",
+        "lon": "134.010"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 1976 (225.990 W)",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 48.269,
+        "lng": 134.01
+      },
+      "query_info": {
+        "query_id": "viking2_utopia",
+        "planet": "Mars",
+        "lat": 48.269,
+        "lon_east": 134.01,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "pathfinder_ares_vallis",
+      "source_id": "pathfinder_ares_vallis",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Pathfinder Ares Vallis",
+      "description": "outflow channel floor, flood boulders",
+      "lat": 19.33,
+      "lon": -33.55,
+      "lon_east": 326.45,
+      "source_lat": 19.33,
+      "source_lon": -33.55,
+      "source_line_number": 19,
+      "source_coordinate_literals": {
+        "lat": "19.33",
+        "lon": "-33.55"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 1997, NSSDC",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 19.33,
+        "lng": -33.55
+      },
+      "query_info": {
+        "query_id": "pathfinder_ares_vallis",
+        "planet": "Mars",
+        "lat": 19.33,
+        "lon_east": 326.45,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "beagle2_isidis",
+      "source_id": "beagle2_isidis",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Beagle2 Isidis",
+      "description": "smooth basin plains",
+      "lat": 11.5265,
+      "lon": 90.4295,
+      "lon_east": 90.4295,
+      "source_lat": 11.5265,
+      "source_lon": 90.4295,
+      "source_line_number": 20,
+      "source_coordinate_literals": {
+        "lat": "11.5265",
+        "lon": "90.4295"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2003, ha canh nhung pin khong mo",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 11.5265,
+        "lng": 90.4295
+      },
+      "query_info": {
+        "query_id": "beagle2_isidis",
+        "planet": "Mars",
+        "lat": 11.5265,
+        "lon_east": 90.4295,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "spirit_gusev",
+      "source_id": "spirit_gusev",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Spirit Gusev",
+      "description": "crater floor basalt plains, Columbia Hills",
+      "lat": -14.5718,
+      "lon": 175.4785,
+      "lon_east": 175.4785,
+      "source_lat": -14.5718,
+      "source_lon": 175.4785,
+      "source_line_number": 21,
+      "source_coordinate_literals": {
+        "lat": "-14.5718",
+        "lon": "175.4785"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2004",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": -14.5718,
+        "lng": 175.4785
+      },
+      "query_info": {
+        "query_id": "spirit_gusev",
+        "planet": "Mars",
+        "lat": -14.5718,
+        "lon_east": 175.4785,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "opportunity_meridiani",
+      "source_id": "opportunity_meridiani",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Opportunity Meridiani",
+      "description": "hematite plains, small craters, ripples",
+      "lat": -1.9462,
+      "lon": -5.5266,
+      "lon_east": 354.4734,
+      "source_lat": -1.9462,
+      "source_lon": -5.5266,
+      "source_line_number": 22,
+      "source_coordinate_literals": {
+        "lat": "-1.9462",
+        "lon": "-5.5266"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2004 (354.4734 E)",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": -1.9462,
+        "lng": -5.5266
+      },
+      "query_info": {
+        "query_id": "opportunity_meridiani",
+        "planet": "Mars",
+        "lat": -1.9462,
+        "lon_east": 354.4734,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "phoenix_vastitas",
+      "source_id": "phoenix_vastitas",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Phoenix Vastitas",
+      "description": "polar patterned ground, shallow ice",
+      "lat": 68.21883,
+      "lon": -125.74922,
+      "lon_east": 234.25078000000002,
+      "source_lat": 68.21883,
+      "source_lon": -125.74922,
+      "source_line_number": 23,
+      "source_coordinate_literals": {
+        "lat": "68.21883",
+        "lon": "-125.74922"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2008 (234.2508 E)",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 68.21883,
+        "lng": -125.74922
+      },
+      "query_info": {
+        "query_id": "phoenix_vastitas",
+        "planet": "Mars",
+        "lat": 68.21883,
+        "lon_east": 234.25078000000002,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "curiosity_gale",
+      "source_id": "curiosity_gale",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Curiosity Gale",
+      "description": "crater floor, alluvial fan, Mount Sharp foot",
+      "lat": -4.5895,
+      "lon": 137.4417,
+      "lon_east": 137.4417,
+      "source_lat": -4.5895,
+      "source_lon": 137.4417,
+      "source_line_number": 24,
+      "source_coordinate_literals": {
+        "lat": "-4.5895",
+        "lon": "137.4417"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2012",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": -4.5895,
+        "lng": 137.4417
+      },
+      "query_info": {
+        "query_id": "curiosity_gale",
+        "planet": "Mars",
+        "lat": -4.5895,
+        "lon_east": 137.4417,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "insight_elysium",
+      "source_id": "insight_elysium",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Insight Elysium",
+      "description": "smooth regolith plains, few rocks",
+      "lat": 4.502,
+      "lon": 135.623,
+      "lon_east": 135.623,
+      "source_lat": 4.502,
+      "source_lon": 135.623,
+      "source_line_number": 25,
+      "source_coordinate_literals": {
+        "lat": "4.502",
+        "lon": "135.623"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2018",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 4.502,
+        "lng": 135.623
+      },
+      "query_info": {
+        "query_id": "insight_elysium",
+        "planet": "Mars",
+        "lat": 4.502,
+        "lon_east": 135.623,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "perseverance_jezero",
+      "source_id": "perseverance_jezero",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Perseverance Jezero",
+      "description": "crater floor near fluvial delta",
+      "lat": 18.4447,
+      "lon": 77.4508,
+      "lon_east": 77.4508,
+      "source_lat": 18.4447,
+      "source_lon": 77.4508,
+      "source_line_number": 26,
+      "source_coordinate_literals": {
+        "lat": "18.4447",
+        "lon": "77.4508"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2021 (diem dang co trong app)",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 18.4447,
+        "lng": 77.4508
+      },
+      "query_info": {
+        "query_id": "perseverance_jezero",
+        "planet": "Mars",
+        "lat": 18.4447,
+        "lon_east": 77.4508,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "zhurong_utopia",
+      "source_id": "zhurong_utopia",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Zhurong Utopia",
+      "description": "plains with troughs, ridges, pitted cones",
+      "lat": 25.066,
+      "lon": 109.925,
+      "lon_east": 109.925,
+      "source_lat": 25.066,
+      "source_lon": 109.925,
+      "source_line_number": 27,
+      "source_coordinate_literals": {
+        "lat": "25.066",
+        "lon": "109.925"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] 2021, HiRIC",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 25.066,
+        "lng": 109.925
+      },
+      "query_info": {
+        "query_id": "zhurong_utopia",
+        "planet": "Mars",
+        "lat": 25.066,
+        "lon_east": 109.925,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "exomars_oxia_planum",
+      "source_id": "exomars_oxia_planum",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Exomars Oxia Planum",
+      "description": "clay-bearing layered plains, fan deposit",
+      "lat": 18.2,
+      "lon": -24.55,
+      "lon_east": 335.45,
+      "source_lat": 18.2,
+      "source_lon": -24.55,
+      "source_line_number": 30,
+      "source_coordinate_literals": {
+        "lat": "18.20",
+        "lon": "-24.55"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[TUONG LAI][V] tam elip ESA (335.45 E); Rosalind Franklin phong 2028",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 18.2,
+        "lng": -24.55
+      },
+      "query_info": {
+        "query_id": "exomars_oxia_planum",
+        "planet": "Mars",
+        "lat": 18.2,
+        "lon_east": 335.45,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "exomars_backup_mawrth",
+      "source_id": "exomars_backup_mawrth",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Exomars Backup Mawrth",
+      "description": "layered phyllosilicate terrain",
+      "lat": 22.6,
+      "lon": -17.9,
+      "lon_east": 342.1,
+      "source_lat": 22.6,
+      "source_lon": -17.9,
+      "source_line_number": 31,
+      "source_coordinate_literals": {
+        "lat": "22.6",
+        "lon": "-17.9"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] vung du phong cu cua ExoMars",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 22.6,
+        "lng": -17.9
+      },
+      "query_info": {
+        "query_id": "exomars_backup_mawrth",
+        "planet": "Mars",
+        "lat": 22.6,
+        "lon_east": 342.1,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "starship_arcadia_ap",
+      "source_id": "starship_arcadia_AP",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Starship Arcadia AP",
+      "description": "flat mid-latitude plains, shallow ground ice",
+      "lat": 39.09,
+      "lon": -170.21,
+      "lon_east": 189.79,
+      "source_lat": 39.09,
+      "source_lon": -170.21,
+      "source_line_number": 32,
+      "source_coordinate_literals": {
+        "lat": "39.090",
+        "lon": "-170.210"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[TUONG LAI][V] tam anh HiRISE ESP_060706_2195 (189.79 E)",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 39.09,
+        "lng": -170.21
+      },
+      "query_info": {
+        "query_id": "starship_arcadia_ap",
+        "planet": "Mars",
+        "lat": 39.09,
+        "lon_east": 189.79,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "starship_phlegra_montes",
+      "source_id": "starship_phlegra_montes",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Starship Phlegra Montes",
+      "description": "mountains with buried glaciers",
+      "lat": 40.0,
+      "lon": 163.0,
+      "lon_east": 163.0,
+      "source_lat": 40.0,
+      "source_lon": 163.0,
+      "source_line_number": 33,
+      "source_coordinate_literals": {
+        "lat": "40.0",
+        "lon": "163.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] vung HiRISE chup cho SpaceX",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 40.0,
+        "lng": 163.0
+      },
+      "query_info": {
+        "query_id": "starship_phlegra_montes",
+        "planet": "Mars",
+        "lat": 40.0,
+        "lon_east": 163.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "tianwen3_chryse",
+      "source_id": "tianwen3_chryse",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Tianwen 3 Chryse",
+      "description": "ancient lowland plains, possible coastlines",
+      "lat": 22.0,
+      "lon": -40.0,
+      "lon_east": 320.0,
+      "source_lat": 22.0,
+      "source_lon": -40.0,
+      "source_line_number": 34,
+      "source_coordinate_literals": {
+        "lat": "22.0",
+        "lon": "-40.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] tam vung TLA-C (vung uu tien)",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 22.0,
+        "lng": -40.0
+      },
+      "query_info": {
+        "query_id": "tianwen3_chryse",
+        "planet": "Mars",
+        "lat": 22.0,
+        "lon_east": 320.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "tianwen3_utopia",
+      "source_id": "tianwen3_utopia",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Tianwen 3 Utopia",
+      "description": "southern Utopia plains",
+      "lat": 25.0,
+      "lon": 110.0,
+      "lon_east": 110.0,
+      "source_lat": 25.0,
+      "source_lon": 110.0,
+      "source_line_number": 35,
+      "source_coordinate_literals": {
+        "lat": "25.0",
+        "lon": "110.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] tam vung TLA-U",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 25.0,
+        "lng": 110.0
+      },
+      "query_info": {
+        "query_id": "tianwen3_utopia",
+        "planet": "Mars",
+        "lat": 25.0,
+        "lon_east": 110.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "tianwen3_amazonis",
+      "source_id": "tianwen3_amazonis",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Tianwen 3 Amazonis",
+      "description": "smooth young plains",
+      "lat": 25.0,
+      "lon": -160.0,
+      "lon_east": 200.0,
+      "source_lat": 25.0,
+      "source_lon": -160.0,
+      "source_line_number": 36,
+      "source_coordinate_literals": {
+        "lat": "25.0",
+        "lon": "-160.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] tam vung TLA-A",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 25.0,
+        "lng": -160.0
+      },
+      "query_info": {
+        "query_id": "tianwen3_amazonis",
+        "planet": "Mars",
+        "lat": 25.0,
+        "lon_east": 200.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "ne_syrtis",
+      "source_id": "ne_syrtis",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "NE Syrtis",
+      "description": "olivine/carbonate bedrock, layered terrain",
+      "lat": 17.8,
+      "lon": 77.1,
+      "lon_east": 77.1,
+      "source_lat": 17.8,
+      "source_lon": 77.1,
+      "source_line_number": 39,
+      "source_coordinate_literals": {
+        "lat": "17.8",
+        "lon": "77.1"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[UNG VIEN CU][~] Mars 2020",
+      "mission_category": "former_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 17.8,
+        "lng": 77.1
+      },
+      "query_info": {
+        "query_id": "ne_syrtis",
+        "planet": "Mars",
+        "lat": 17.8,
+        "lon_east": 77.1,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "eberswalde_delta",
+      "source_id": "eberswalde_delta",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Eberswalde Delta",
+      "description": "well-preserved fan delta",
+      "lat": -23.9,
+      "lon": -33.5,
+      "lon_east": 326.5,
+      "source_lat": -23.9,
+      "source_lon": -33.5,
+      "source_line_number": 40,
+      "source_coordinate_literals": {
+        "lat": "-23.9",
+        "lon": "-33.5"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[UNG VIEN CU][~] MSL",
+      "mission_category": "former_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": -23.9,
+        "lng": -33.5
+      },
+      "query_info": {
+        "query_id": "eberswalde_delta",
+        "planet": "Mars",
+        "lat": -23.9,
+        "lon_east": 326.5,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "holden_crater",
+      "source_id": "holden_crater",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Holden Crater",
+      "description": "alluvial fans, lacustrine layers",
+      "lat": -26.4,
+      "lon": -34.9,
+      "lon_east": 325.1,
+      "source_lat": -26.4,
+      "source_lon": -34.9,
+      "source_line_number": 41,
+      "source_coordinate_literals": {
+        "lat": "-26.4",
+        "lon": "-34.9"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[UNG VIEN CU][~] MSL",
+      "mission_category": "former_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": -26.4,
+        "lng": -34.9
+      },
+      "query_info": {
+        "query_id": "holden_crater",
+        "planet": "Mars",
+        "lat": -26.4,
+        "lon_east": 325.1,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "apollo11_tranquillitatis",
+      "source_id": "apollo11_tranquillitatis",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Apollo 11 Tranquillitatis",
+      "description": "mare plains, small fresh craters",
+      "lat": 0.67416,
+      "lon": 23.47314,
+      "lon_east": 23.47314,
+      "source_lat": 0.67416,
+      "source_lon": 23.47314,
+      "source_line_number": 46,
+      "source_coordinate_literals": {
+        "lat": "0.67416",
+        "lon": "23.47314"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] NSSDC",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "Mean Earth/Polar Axis Lunar Reference System, DE421",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 0.67416,
+        "lng": 23.47314
+      },
+      "query_info": {
+        "query_id": "apollo11_tranquillitatis",
+        "planet": "Moon",
+        "lat": 0.67416,
+        "lon_east": 23.47314,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "coordinate_role": "historical_lunar_module_landing_point",
+      "sources": [
+        {
+          "url": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+          "publisher": "NASA NSSDCA",
+          "supports": "Lunar Module coordinates and DE421 reference system; not terrain or thermal measurements",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Existing coordinates match NASA Lunar Module coordinates; no duplicate added. Verification is of the published coordinates, not of a measured 250 m ROI."
+    },
+    {
+      "id": "apollo12_procellarum",
+      "source_id": "apollo12_procellarum",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Apollo 12 Procellarum",
+      "description": "mare plains, next to Surveyor 3",
+      "lat": -3.0128,
+      "lon": -23.4219,
+      "lon_east": 336.5781,
+      "source_lat": -3.0128,
+      "source_lon": -23.4219,
+      "source_line_number": 47,
+      "source_coordinate_literals": {
+        "lat": "-3.0128",
+        "lon": "-23.4219"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "Mean Earth/Polar Axis Lunar Reference System, DE421",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -3.0128,
+        "lng": -23.4219
+      },
+      "query_info": {
+        "query_id": "apollo12_procellarum",
+        "planet": "Moon",
+        "lat": -3.0128,
+        "lon_east": 336.5781,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "coordinate_role": "historical_lunar_module_landing_point",
+      "sources": [
+        {
+          "url": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+          "publisher": "NASA NSSDCA",
+          "supports": "Lunar Module coordinates and DE421 reference system; not terrain or thermal measurements",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Existing coordinates match NASA Lunar Module coordinates; no duplicate added. Verification is of the published coordinates, not of a measured 250 m ROI."
+    },
+    {
+      "id": "apollo14_fra_mauro",
+      "source_id": "apollo14_fra_mauro",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Apollo 14 Fra Mauro",
+      "description": "hummocky ejecta (Imbrium)",
+      "lat": -3.64589,
+      "lon": -17.47194,
+      "lon_east": 342.52806,
+      "source_lat": -3.64589,
+      "source_lon": -17.47194,
+      "source_line_number": 48,
+      "source_coordinate_literals": {
+        "lat": "-3.64589",
+        "lon": "-17.47194"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "Mean Earth/Polar Axis Lunar Reference System, DE421",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -3.64589,
+        "lng": -17.47194
+      },
+      "query_info": {
+        "query_id": "apollo14_fra_mauro",
+        "planet": "Moon",
+        "lat": -3.64589,
+        "lon_east": 342.52806,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "coordinate_role": "historical_lunar_module_landing_point",
+      "sources": [
+        {
+          "url": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+          "publisher": "NASA NSSDCA",
+          "supports": "Lunar Module coordinates and DE421 reference system; not terrain or thermal measurements",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Existing coordinates match NASA Lunar Module coordinates; no duplicate added. Verification is of the published coordinates, not of a measured 250 m ROI."
+    },
+    {
+      "id": "apollo15_hadley",
+      "source_id": "apollo15_hadley",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Apollo 15 Hadley",
+      "description": "mare beside sinuous rille, Apennine front",
+      "lat": 26.13239,
+      "lon": 3.6333,
+      "lon_east": 3.6333,
+      "source_lat": 26.13239,
+      "source_lon": 3.6333,
+      "source_line_number": 49,
+      "source_coordinate_literals": {
+        "lat": "26.13239",
+        "lon": "3.63330"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "Mean Earth/Polar Axis Lunar Reference System, DE421",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 26.13239,
+        "lng": 3.6333
+      },
+      "query_info": {
+        "query_id": "apollo15_hadley",
+        "planet": "Moon",
+        "lat": 26.13239,
+        "lon_east": 3.6333,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "coordinate_role": "historical_lunar_module_landing_point",
+      "sources": [
+        {
+          "url": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+          "publisher": "NASA NSSDCA",
+          "supports": "Lunar Module coordinates and DE421 reference system; not terrain or thermal measurements",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Existing coordinates match NASA Lunar Module coordinates; no duplicate added. Verification is of the published coordinates, not of a measured 250 m ROI."
+    },
+    {
+      "id": "apollo16_descartes",
+      "source_id": "apollo16_descartes",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Apollo 16 Descartes",
+      "description": "highland plains, cratered",
+      "lat": -8.9734,
+      "lon": 15.5011,
+      "lon_east": 15.5011,
+      "source_lat": -8.9734,
+      "source_lon": 15.5011,
+      "source_line_number": 50,
+      "source_coordinate_literals": {
+        "lat": "-8.9734",
+        "lon": "15.5011"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "Mean Earth/Polar Axis Lunar Reference System, DE421",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -8.9734,
+        "lng": 15.5011
+      },
+      "query_info": {
+        "query_id": "apollo16_descartes",
+        "planet": "Moon",
+        "lat": -8.9734,
+        "lon_east": 15.5011,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "coordinate_role": "historical_lunar_module_landing_point",
+      "sources": [
+        {
+          "url": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+          "publisher": "NASA NSSDCA",
+          "supports": "Lunar Module coordinates and DE421 reference system; not terrain or thermal measurements",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Existing coordinates match NASA Lunar Module coordinates; no duplicate added. Verification is of the published coordinates, not of a measured 250 m ROI."
+    },
+    {
+      "id": "apollo17_taurus_littrow",
+      "source_id": "apollo17_taurus_littrow",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Apollo 17 Taurus Littrow",
+      "description": "valley floor between massifs, dark mantle",
+      "lat": 20.1911,
+      "lon": 30.7723,
+      "lon_east": 30.7723,
+      "source_lat": 20.1911,
+      "source_lon": 30.7723,
+      "source_line_number": 51,
+      "source_coordinate_literals": {
+        "lat": "20.1911",
+        "lon": "30.7723"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "Mean Earth/Polar Axis Lunar Reference System, DE421",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 20.1911,
+        "lng": 30.7723
+      },
+      "query_info": {
+        "query_id": "apollo17_taurus_littrow",
+        "planet": "Moon",
+        "lat": 20.1911,
+        "lon_east": 30.7723,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "coordinate_role": "historical_lunar_module_landing_point",
+      "sources": [
+        {
+          "url": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+          "publisher": "NASA NSSDCA",
+          "supports": "Lunar Module coordinates and DE421 reference system; not terrain or thermal measurements",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Existing coordinates match NASA Lunar Module coordinates; no duplicate added. Verification is of the published coordinates, not of a measured 250 m ROI."
+    },
+    {
+      "id": "surveyor1_flamsteed",
+      "source_id": "surveyor1_flamsteed",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Surveyor 1 Flamsteed",
+      "description": "mare plains",
+      "lat": -2.4745,
+      "lon": -43.3398,
+      "lon_east": 316.66020000000003,
+      "source_lat": -2.4745,
+      "source_lon": -43.3398,
+      "source_line_number": 54,
+      "source_coordinate_literals": {
+        "lat": "-2.4745",
+        "lon": "-43.3398"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -2.4745,
+        "lng": -43.3398
+      },
+      "query_info": {
+        "query_id": "surveyor1_flamsteed",
+        "planet": "Moon",
+        "lat": -2.4745,
+        "lon_east": 316.66020000000003,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "surveyor3",
+      "source_id": "surveyor3",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Surveyor 3",
+      "description": "inside small crater, mare",
+      "lat": -3.0162,
+      "lon": -23.418,
+      "lon_east": 336.582,
+      "source_lat": -3.0162,
+      "source_lon": -23.418,
+      "source_line_number": 55,
+      "source_coordinate_literals": {
+        "lat": "-3.0162",
+        "lon": "-23.4180"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -3.0162,
+        "lng": -23.418
+      },
+      "query_info": {
+        "query_id": "surveyor3",
+        "planet": "Moon",
+        "lat": -3.0162,
+        "lon_east": 336.582,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "surveyor5_tranquillitatis",
+      "source_id": "surveyor5_tranquillitatis",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Surveyor 5 Tranquillitatis",
+      "description": "crater wall slope, mare",
+      "lat": 1.4551,
+      "lon": 23.1943,
+      "lon_east": 23.1943,
+      "source_lat": 1.4551,
+      "source_lon": 23.1943,
+      "source_line_number": 56,
+      "source_coordinate_literals": {
+        "lat": "1.4551",
+        "lon": "23.1943"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 1.4551,
+        "lng": 23.1943
+      },
+      "query_info": {
+        "query_id": "surveyor5_tranquillitatis",
+        "planet": "Moon",
+        "lat": 1.4551,
+        "lon_east": 23.1943,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "surveyor6_sinus_medii",
+      "source_id": "surveyor6_sinus_medii",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Surveyor 6 Sinus Medii",
+      "description": "mare plains",
+      "lat": 0.4742,
+      "lon": -1.4275,
+      "lon_east": 358.5725,
+      "source_lat": 0.4742,
+      "source_lon": -1.4275,
+      "source_line_number": 57,
+      "source_coordinate_literals": {
+        "lat": "0.4742",
+        "lon": "-1.4275"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 0.4742,
+        "lng": -1.4275
+      },
+      "query_info": {
+        "query_id": "surveyor6_sinus_medii",
+        "planet": "Moon",
+        "lat": 0.4742,
+        "lon_east": 358.5725,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "surveyor7_tycho",
+      "source_id": "surveyor7_tycho",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Surveyor 7 Tycho",
+      "description": "Tycho ejecta blanket, rough highland",
+      "lat": -40.9812,
+      "lon": -11.5127,
+      "lon_east": 348.4873,
+      "source_lat": -40.9812,
+      "source_lon": -11.5127,
+      "source_line_number": 58,
+      "source_coordinate_literals": {
+        "lat": "-40.9812",
+        "lon": "-11.5127"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -40.9812,
+        "lng": -11.5127
+      },
+      "query_info": {
+        "query_id": "surveyor7_tycho",
+        "planet": "Moon",
+        "lat": -40.9812,
+        "lon_east": 348.4873,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "luna16_fecunditatis",
+      "source_id": "luna16_fecunditatis",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Luna 16 Fecunditatis",
+      "description": "mare plains",
+      "lat": -0.5137,
+      "lon": 56.3638,
+      "lon_east": 56.3638,
+      "source_lat": -0.5137,
+      "source_lon": 56.3638,
+      "source_line_number": 59,
+      "source_coordinate_literals": {
+        "lat": "-0.5137",
+        "lon": "56.3638"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -0.5137,
+        "lng": 56.3638
+      },
+      "query_info": {
+        "query_id": "luna16_fecunditatis",
+        "planet": "Moon",
+        "lat": -0.5137,
+        "lon_east": 56.3638,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "luna17_lunokhod1_imbrium",
+      "source_id": "luna17_lunokhod1_imbrium",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Luna 17 Lunokhod 1 Imbrium",
+      "description": "mare plains",
+      "lat": 38.23764,
+      "lon": -35.00163,
+      "lon_east": 324.99837,
+      "source_lat": 38.23764,
+      "source_lon": -35.00163,
+      "source_line_number": 60,
+      "source_coordinate_literals": {
+        "lat": "38.23764",
+        "lon": "-35.00163"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 38.23764,
+        "lng": -35.00163
+      },
+      "query_info": {
+        "query_id": "luna17_lunokhod1_imbrium",
+        "planet": "Moon",
+        "lat": 38.23764,
+        "lon_east": 324.99837,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "luna20_apollonius",
+      "source_id": "luna20_apollonius",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Luna 20 Apollonius",
+      "description": "highland between maria",
+      "lat": 3.7863,
+      "lon": 56.6242,
+      "lon_east": 56.6242,
+      "source_lat": 3.7863,
+      "source_lon": 56.6242,
+      "source_line_number": 61,
+      "source_coordinate_literals": {
+        "lat": "3.7863",
+        "lon": "56.6242"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 3.7863,
+        "lng": 56.6242
+      },
+      "query_info": {
+        "query_id": "luna20_apollonius",
+        "planet": "Moon",
+        "lat": 3.7863,
+        "lon_east": 56.6242,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "luna21_lunokhod2_lemonnier",
+      "source_id": "luna21_lunokhod2_lemonnier",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Luna 21 Lunokhod 2 Lemonnier",
+      "description": "mare/highland boundary, rille",
+      "lat": 25.9994,
+      "lon": 30.4076,
+      "lon_east": 30.4076,
+      "source_lat": 25.9994,
+      "source_lon": 30.4076,
+      "source_line_number": 62,
+      "source_coordinate_literals": {
+        "lat": "25.9994",
+        "lon": "30.4076"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 25.9994,
+        "lng": 30.4076
+      },
+      "query_info": {
+        "query_id": "luna21_lunokhod2_lemonnier",
+        "planet": "Moon",
+        "lat": 25.9994,
+        "lon_east": 30.4076,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "luna24_crisium",
+      "source_id": "luna24_crisium",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Luna 24 Crisium",
+      "description": "mare plains",
+      "lat": 12.7142,
+      "lon": 62.2129,
+      "lon_east": 62.2129,
+      "source_lat": 12.7142,
+      "source_lon": 62.2129,
+      "source_line_number": 63,
+      "source_coordinate_literals": {
+        "lat": "12.7142",
+        "lon": "62.2129"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 12.7142,
+        "lng": 62.2129
+      },
+      "query_info": {
+        "query_id": "luna24_crisium",
+        "planet": "Moon",
+        "lat": 12.7142,
+        "lon_east": 62.2129,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "change3_imbrium",
+      "source_id": "change3_imbrium",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Chang'e 3 Imbrium",
+      "description": "young mare, fresh crater ejecta",
+      "lat": 44.1214,
+      "lon": -19.5117,
+      "lon_east": 340.4883,
+      "source_lat": 44.1214,
+      "source_lon": -19.5117,
+      "source_line_number": 66,
+      "source_coordinate_literals": {
+        "lat": "44.1214",
+        "lon": "-19.5117"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 44.1214,
+        "lng": -19.5117
+      },
+      "query_info": {
+        "query_id": "change3_imbrium",
+        "planet": "Moon",
+        "lat": 44.1214,
+        "lon_east": 340.4883,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "change4_von_karman",
+      "source_id": "change4_von_karman",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Chang'e 4 Von Karman",
+      "description": "far-side crater floor (SPA)",
+      "lat": -45.4561,
+      "lon": 177.5885,
+      "lon_east": 177.5885,
+      "source_lat": -45.4561,
+      "source_lon": 177.5885,
+      "source_line_number": 67,
+      "source_coordinate_literals": {
+        "lat": "-45.4561",
+        "lon": "177.5885"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -45.4561,
+        "lng": 177.5885
+      },
+      "query_info": {
+        "query_id": "change4_von_karman",
+        "planet": "Moon",
+        "lat": -45.4561,
+        "lon_east": 177.5885,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "change5_rumker",
+      "source_id": "change5_rumker",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Chang'e 5 Rumker",
+      "description": "young basalt, Mons Rumker region",
+      "lat": 43.0576,
+      "lon": -51.9161,
+      "lon_east": 308.08389999999997,
+      "source_lat": 43.0576,
+      "source_lon": -51.9161,
+      "source_line_number": 68,
+      "source_coordinate_literals": {
+        "lat": "43.0576",
+        "lon": "-51.9161"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 43.0576,
+        "lng": -51.9161
+      },
+      "query_info": {
+        "query_id": "change5_rumker",
+        "planet": "Moon",
+        "lat": 43.0576,
+        "lon_east": 308.08389999999997,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "change6_apollo_basin",
+      "source_id": "change6_apollo_basin",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Chang'e 6 Apollo Basin",
+      "description": "far-side mare in Apollo basin",
+      "lat": -41.6385,
+      "lon": -153.9852,
+      "lon_east": 206.0148,
+      "source_lat": -41.6385,
+      "source_lon": -153.9852,
+      "source_line_number": 69,
+      "source_coordinate_literals": {
+        "lat": "-41.6385",
+        "lon": "-153.9852"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -41.6385,
+        "lng": -153.9852
+      },
+      "query_info": {
+        "query_id": "change6_apollo_basin",
+        "planet": "Moon",
+        "lat": -41.6385,
+        "lon_east": 206.0148,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "chandrayaan3_south_highland",
+      "source_id": "chandrayaan3_south_highland",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Chandrayaan 3 South Highland",
+      "description": "high-latitude highland plains",
+      "lat": -69.3741,
+      "lon": 32.32,
+      "lon_east": 32.32,
+      "source_lat": -69.3741,
+      "source_lon": 32.32,
+      "source_line_number": 70,
+      "source_coordinate_literals": {
+        "lat": "-69.3741",
+        "lon": "32.32"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V]",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -69.3741,
+        "lng": 32.32
+      },
+      "query_info": {
+        "query_id": "chandrayaan3_south_highland",
+        "planet": "Moon",
+        "lat": -69.3741,
+        "lon_east": 32.32,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "slim_shioli",
+      "source_id": "slim_shioli",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "SLIM Shioli",
+      "description": "slope near Shioli crater, rocky",
+      "lat": -13.316,
+      "lon": 25.251,
+      "lon_east": 25.251,
+      "source_lat": -13.316,
+      "source_lon": 25.251,
+      "source_line_number": 71,
+      "source_coordinate_literals": {
+        "lat": "-13.3160",
+        "lon": "25.2510"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] chong dau (lat nghieng)",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -13.316,
+        "lng": 25.251
+      },
+      "query_info": {
+        "query_id": "slim_shioli",
+        "planet": "Moon",
+        "lat": -13.316,
+        "lon_east": 25.251,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "im1_malapert_a",
+      "source_id": "im1_malapert_a",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "IM 1 Malapert A",
+      "description": "south-polar crater rim slope",
+      "lat": -80.13,
+      "lon": 1.44,
+      "lon_east": 1.44,
+      "source_lat": -80.13,
+      "source_lon": 1.44,
+      "source_line_number": 72,
+      "source_coordinate_literals": {
+        "lat": "-80.13",
+        "lon": "1.44"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] bi lat",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -80.13,
+        "lng": 1.44
+      },
+      "query_info": {
+        "query_id": "im1_malapert_a",
+        "planet": "Moon",
+        "lat": -80.13,
+        "lon_east": 1.44,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "blue_ghost1_crisium",
+      "source_id": "blue_ghost1_crisium",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Blue Ghost 1 Crisium",
+      "description": "mare near volcanic Mons Latreille",
+      "lat": 18.562,
+      "lon": 61.81,
+      "lon_east": 61.81,
+      "source_lat": 18.562,
+      "source_lon": 61.81,
+      "source_line_number": 73,
+      "source_coordinate_literals": {
+        "lat": "18.562",
+        "lon": "61.810"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] thanh cong hoan toan",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 18.562,
+        "lng": 61.81
+      },
+      "query_info": {
+        "query_id": "blue_ghost1_crisium",
+        "planet": "Moon",
+        "lat": 18.562,
+        "lon_east": 61.81,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "im2_mons_mouton_plateau",
+      "source_id": "im2_mons_mouton_plateau",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "IM 2 Mons Mouton Plateau",
+      "description": "polar plateau, crater H nearby",
+      "lat": -84.7906,
+      "lon": 29.1957,
+      "lon_east": 29.1957,
+      "source_lat": -84.7906,
+      "source_lon": 29.1957,
+      "source_line_number": 74,
+      "source_coordinate_literals": {
+        "lat": "-84.7906",
+        "lon": "29.1957"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[DA HA CANH][V] bi lat",
+      "mission_category": "landed_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -84.7906,
+        "lng": 29.1957
+      },
+      "query_info": {
+        "query_id": "im2_mons_mouton_plateau",
+        "planet": "Moon",
+        "lat": -84.7906,
+        "lon_east": 29.1957,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "change7_shackleton_ridge",
+      "source_id": "change7_shackleton_ridge",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Chang'e 7 Shackleton Ridge",
+      "description": "illuminated ridge near Shackleton rim",
+      "lat": -88.8,
+      "lon": 123.4,
+      "lon_east": 123.4,
+      "source_lat": -88.8,
+      "source_lon": 123.4,
+      "source_line_number": 77,
+      "source_coordinate_literals": {
+        "lat": "-88.8",
+        "lon": "123.4"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[TUONG LAI][V] lui sang 2027",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -88.8,
+        "lng": 123.4
+      },
+      "query_info": {
+        "query_id": "change7_shackleton_ridge",
+        "planet": "Moon",
+        "lat": -88.8,
+        "lon_east": 123.4,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "im3_reiner_gamma",
+      "source_id": "im3_reiner_gamma",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "IM 3 Reiner Gamma",
+      "description": "lunar swirl, magnetic anomaly, mare",
+      "lat": 7.5,
+      "lon": -59.0,
+      "lon_east": 301.0,
+      "source_lat": 7.5,
+      "source_lon": -59.0,
+      "source_line_number": 78,
+      "source_coordinate_literals": {
+        "lat": "7.5",
+        "lon": "-59.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] IM-3",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": 7.5,
+        "lng": -59.0
+      },
+      "query_info": {
+        "query_id": "im3_reiner_gamma",
+        "planet": "Moon",
+        "lat": 7.5,
+        "lon_east": 301.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_mons_mouton",
+      "source_id": "artemis_mons_mouton",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Mons Mouton",
+      "description": "flat-topped polar massif",
+      "lat": -84.6,
+      "lon": 31.0,
+      "lon_east": 31.0,
+      "source_lat": -84.6,
+      "source_lon": 31.0,
+      "source_line_number": 79,
+      "source_coordinate_literals": {
+        "lat": "-84.6",
+        "lon": "31.0"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[TUONG LAI][V] tam nui",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -84.6,
+        "lng": 31.0
+      },
+      "query_info": {
+        "query_id": "artemis_mons_mouton",
+        "planet": "Moon",
+        "lat": -84.6,
+        "lon_east": 31.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_mons_mouton_plateau",
+      "source_id": "artemis_mons_mouton_plateau",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Mons Mouton Plateau",
+      "description": "polar plateau",
+      "lat": -84.79,
+      "lon": 29.2,
+      "lon_east": 29.2,
+      "source_lat": -84.79,
+      "source_lon": 29.2,
+      "source_line_number": 80,
+      "source_coordinate_literals": {
+        "lat": "-84.79",
+        "lon": "29.20"
+      },
+      "coordinate_status": "source_claimed",
+      "source_flag": "[V]",
+      "source_comment": "[TUONG LAI][V] lay theo diem IM-2",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -84.79,
+        "lng": 29.2
+      },
+      "query_info": {
+        "query_id": "artemis_mons_mouton_plateau",
+        "planet": "Moon",
+        "lat": -84.79,
+        "lon_east": 29.2,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_malapert_massif",
+      "source_id": "artemis_malapert_massif",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Malapert Massif",
+      "description": "massif, high illumination",
+      "lat": -86.0,
+      "lon": 2.9,
+      "lon_east": 2.9,
+      "source_lat": -86.0,
+      "source_lon": 2.9,
+      "source_line_number": 81,
+      "source_coordinate_literals": {
+        "lat": "-86.0",
+        "lon": "2.9"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~]",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -86.0,
+        "lng": 2.9
+      },
+      "query_info": {
+        "query_id": "artemis_malapert_massif",
+        "planet": "Moon",
+        "lat": -86.0,
+        "lon_east": 2.9,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_haworth",
+      "source_id": "artemis_haworth",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Haworth",
+      "description": "crater rim adjacent to PSR",
+      "lat": -87.4,
+      "lon": -5.0,
+      "lon_east": 355.0,
+      "source_lat": -87.4,
+      "source_lon": -5.0,
+      "source_line_number": 82,
+      "source_coordinate_literals": {
+        "lat": "-87.4",
+        "lon": "-5.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] tam ho, vung ha canh nam o vanh",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -87.4,
+        "lng": -5.0
+      },
+      "query_info": {
+        "query_id": "artemis_haworth",
+        "planet": "Moon",
+        "lat": -87.4,
+        "lon_east": 355.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_nobile_rim",
+      "source_id": "artemis_nobile_rim",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Nobile Rim",
+      "description": "eroded crater rim, PSR access",
+      "lat": -85.3,
+      "lon": 53.5,
+      "lon_east": 53.5,
+      "source_lat": -85.3,
+      "source_lon": 53.5,
+      "source_line_number": 83,
+      "source_coordinate_literals": {
+        "lat": "-85.3",
+        "lon": "53.5"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] tam ho Nobile (Rim 1/2 o vanh)",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -85.3,
+        "lng": 53.5
+      },
+      "query_info": {
+        "query_id": "artemis_nobile_rim",
+        "planet": "Moon",
+        "lat": -85.3,
+        "lon_east": 53.5,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_de_gerlache_rim2",
+      "source_id": "artemis_de_gerlache_rim2",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis de Gerlache Rim 2",
+      "description": "crater rim near pole",
+      "lat": -88.5,
+      "lon": -87.0,
+      "lon_east": 273.0,
+      "source_lat": -88.5,
+      "source_lon": -87.0,
+      "source_line_number": 84,
+      "source_coordinate_literals": {
+        "lat": "-88.5",
+        "lon": "-87.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~] tam ho",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -88.5,
+        "lng": -87.0
+      },
+      "query_info": {
+        "query_id": "artemis_de_gerlache_rim2",
+        "planet": "Moon",
+        "lat": -88.5,
+        "lon_east": 273.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_slater_plain",
+      "source_id": "artemis_slater_plain",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Slater Plain",
+      "description": "plain between Shackleton and Slater",
+      "lat": -88.0,
+      "lon": 110.0,
+      "lon_east": 110.0,
+      "source_lat": -88.0,
+      "source_lon": 110.0,
+      "source_line_number": 85,
+      "source_coordinate_literals": {
+        "lat": "-88.0",
+        "lon": "110.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~]",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -88.0,
+        "lng": 110.0
+      },
+      "query_info": {
+        "query_id": "artemis_slater_plain",
+        "planet": "Moon",
+        "lat": -88.0,
+        "lon_east": 110.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "artemis_peak_near_cabeus_b",
+      "source_id": "artemis_peak_near_cabeus_b",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Artemis Peak Near Cabeus B",
+      "description": "isolated peak",
+      "lat": -82.3,
+      "lon": -54.0,
+      "lon_east": 306.0,
+      "source_lat": -82.3,
+      "source_lon": -54.0,
+      "source_line_number": 86,
+      "source_coordinate_literals": {
+        "lat": "-82.3",
+        "lon": "-54.0"
+      },
+      "coordinate_status": "approximate",
+      "source_flag": "[~]",
+      "source_comment": "[TUONG LAI][~]",
+      "mission_category": "future_candidate_claimed",
+      "coordinates_independently_verified": false,
+      "latitude_convention": "not_specified_by_source",
+      "reference_frame": "not_specified_by_source",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -82.3,
+        "lng": -54.0
+      },
+      "query_info": {
+        "query_id": "artemis_peak_near_cabeus_b",
+        "planet": "Moon",
+        "lat": -82.3,
+        "lon_east": 306.0,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      }
+    },
+    {
+      "id": "syrtis_major_planum",
+      "source_id": "syrtis_major_planum",
+      "body": "mars",
+      "planet": "Mars",
+      "name": "Syrtis Major Planum",
+      "description": "Syrtis Major Planum: feature-center scientific reference; not a selected landing pad",
+      "lat": 8.4,
+      "lon": 69.5,
+      "lon_east": 69.5,
+      "source_lat": 8.4,
+      "source_lon": 69.5,
+      "source_line_number": 2,
+      "source_coordinate_literals": {
+        "lat": "8.4",
+        "lon": "69.5"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[UNG VIEN CU][V]",
+      "mission_category": "scientific_reference_not_landing_selection",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetocentric",
+      "reference_frame": "USGS Gazetteer default control network; realization not specified on retrieved page",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [],
+      "globe_point": {
+        "lat": 8.4,
+        "lng": 69.5
+      },
+      "query_info": {
+        "query_id": "syrtis_major_planum",
+        "planet": "Mars",
+        "lat": 8.4,
+        "lon_east": 69.5,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "source_file": "planet_site_research.json",
+      "coordinate_role": "named_feature_center_not_landing_point",
+      "feature_diameter_km": 1350.0,
+      "sources": [
+        {
+          "url": "https://planetarynames.wr.usgs.gov/Feature/5796",
+          "publisher": "IAU / USGS Gazetteer of Planetary Nomenclature",
+          "supports": "Feature center, body, diameter and displayed coordinate convention",
+          "checked_date": "2026-11-14"
+        },
+        {
+          "url": "https://science.nasa.gov/photojournal/syrtis-major-planum-false-color/",
+          "publisher": "NASA/JPL-Caltech/ASU",
+          "supports": "Regional image context only; not a quantitative ROI measurement",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Distinct from ne_syrtis (17.8 N, 77.1 E). This is the center of a 1350 km feature, not a verified landing ROI.",
+      "comparison_data": {
+        "optical": "Discover HiRISE RDRV11 and CTX EDR; verify center and full ROI coverage",
+        "slope": "Derive from a covering DTM with explicit pixel scale and slope baseline; not yet measured",
+        "temperature": "Requires calibrated thermal measurements with acquisition time and footprint; not yet measured",
+        "wind": "No local wind measurement retrieved; orbital optical imagery is not an anemometer",
+        "mineralogy": "Requires calibrated spectral product and quality mask; not yet measured"
+      }
+    },
+    {
+      "id": "faustini_crater",
+      "source_id": "faustini_crater",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Faustini",
+      "description": "Faustini: feature-center scientific reference; not a selected landing pad",
+      "lat": -87.18,
+      "lon": 84.31,
+      "lon_east": 84.31,
+      "source_lat": -87.18,
+      "source_lon": 84.31,
+      "source_line_number": 5,
+      "source_coordinate_literals": {
+        "lat": "-87.18",
+        "lon": "84.31"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[UNG VIEN CU][V]",
+      "mission_category": "scientific_reference_not_landing_selection",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetographic_on_spherical_moon_equivalent_to_planetocentric",
+      "reference_frame": "USGS Gazetteer default control network; realization not specified on retrieved page",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -87.18,
+        "lng": 84.31
+      },
+      "query_info": {
+        "query_id": "faustini_crater",
+        "planet": "Moon",
+        "lat": -87.18,
+        "lon_east": 84.31,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "source_file": "planet_site_research.json",
+      "coordinate_role": "named_feature_center_not_landing_point",
+      "feature_diameter_km": 42.48,
+      "sources": [
+        {
+          "url": "https://planetarynames.wr.usgs.gov/Feature/1919",
+          "publisher": "IAU / USGS Gazetteer of Planetary Nomenclature",
+          "supports": "Feature center, body, diameter and displayed coordinate convention",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Coordinate verified against the reference page, not surveyed at 250 m precision. No landing safety assessment. Crater center is not an illuminated rim target.",
+      "comparison_data": {
+        "optical": "Discover LROC CDRNAC4 products; illumination and full ROI coverage must be checked",
+        "slope": "Derive from a covering DTM with explicit pixel scale and slope baseline; not yet measured",
+        "temperature": "Discover Diviner RDR4; time, local solar time and spatial footprint required",
+        "wind": "not_applicable_atmospheric_wind",
+        "mineralogy": "Requires calibrated spectral product and quality mask; not yet measured"
+      }
+    },
+    {
+      "id": "shoemaker_crater",
+      "source_id": "shoemaker_crater",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Shoemaker",
+      "description": "Shoemaker: feature-center scientific reference; not a selected landing pad",
+      "lat": -88.14,
+      "lon": 45.91,
+      "lon_east": 45.91,
+      "source_lat": -88.14,
+      "source_lon": 45.91,
+      "source_line_number": 6,
+      "source_coordinate_literals": {
+        "lat": "-88.14",
+        "lon": "45.91"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[UNG VIEN CU][V]",
+      "mission_category": "scientific_reference_not_landing_selection",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetographic_on_spherical_moon_equivalent_to_planetocentric",
+      "reference_frame": "USGS Gazetteer default control network; realization not specified on retrieved page",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -88.14,
+        "lng": 45.91
+      },
+      "query_info": {
+        "query_id": "shoemaker_crater",
+        "planet": "Moon",
+        "lat": -88.14,
+        "lon_east": 45.91,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "source_file": "planet_site_research.json",
+      "coordinate_role": "named_feature_center_not_landing_point",
+      "feature_diameter_km": 51.82,
+      "sources": [
+        {
+          "url": "https://planetarynames.wr.usgs.gov/Feature/5494",
+          "publisher": "IAU / USGS Gazetteer of Planetary Nomenclature",
+          "supports": "Feature center, body, diameter and displayed coordinate convention",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Coordinate verified against the reference page, not surveyed at 250 m precision. No landing safety assessment. Crater center is not an illuminated rim target.",
+      "comparison_data": {
+        "optical": "Discover LROC CDRNAC4 products; illumination and full ROI coverage must be checked",
+        "slope": "Derive from a covering DTM with explicit pixel scale and slope baseline; not yet measured",
+        "temperature": "Discover Diviner RDR4; time, local solar time and spatial footprint required",
+        "wind": "not_applicable_atmospheric_wind",
+        "mineralogy": "Requires calibrated spectral product and quality mask; not yet measured"
+      }
+    },
+    {
+      "id": "cabeus_crater",
+      "source_id": "cabeus_crater",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Cabeus",
+      "description": "Cabeus: feature-center scientific reference; not a selected landing pad",
+      "lat": -85.33,
+      "lon": -42.13,
+      "lon_east": 317.87,
+      "source_lat": -85.33,
+      "source_lon": -42.13,
+      "source_line_number": 7,
+      "source_coordinate_literals": {
+        "lat": "-85.33",
+        "lon": "-42.13"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[UNG VIEN CU][V]",
+      "mission_category": "scientific_reference_not_landing_selection",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetographic_on_spherical_moon_equivalent_to_planetocentric",
+      "reference_frame": "USGS Gazetteer default control network; realization not specified on retrieved page",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -85.33,
+        "lng": -42.13
+      },
+      "query_info": {
+        "query_id": "cabeus_crater",
+        "planet": "Moon",
+        "lat": -85.33,
+        "lon_east": 317.87,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "source_file": "planet_site_research.json",
+      "coordinate_role": "named_feature_center_not_landing_point",
+      "feature_diameter_km": 100.58,
+      "sources": [
+        {
+          "url": "https://planetarynames.wr.usgs.gov/Feature/953",
+          "publisher": "IAU / USGS Gazetteer of Planetary Nomenclature",
+          "supports": "Feature center, body, diameter and displayed coordinate convention",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Coordinate verified against the reference page, not surveyed at 250 m precision. No landing safety assessment. Crater center is not an illuminated rim target.",
+      "comparison_data": {
+        "optical": "Discover LROC CDRNAC4 products; illumination and full ROI coverage must be checked",
+        "slope": "Derive from a covering DTM with explicit pixel scale and slope baseline; not yet measured",
+        "temperature": "Discover Diviner RDR4; time, local solar time and spatial footprint required",
+        "wind": "not_applicable_atmospheric_wind",
+        "mineralogy": "Requires calibrated spectral product and quality mask; not yet measured"
+      }
+    },
+    {
+      "id": "shackleton_crater",
+      "source_id": "shackleton_crater",
+      "body": "moon",
+      "planet": "Moon",
+      "name": "Shackleton Crater",
+      "description": "Shackleton crater center; scientific reference near lunar south pole, not a selected landing site",
+      "lat": -89.67,
+      "lon": 129.78,
+      "lon_east": 129.78,
+      "source_lat": -89.67,
+      "source_lon": 129.78,
+      "source_line_number": 8,
+      "source_coordinate_literals": {
+        "lat": "-89.67",
+        "lon": "129.78"
+      },
+      "coordinate_status": "reference_coordinates_verified",
+      "source_flag": "[V]",
+      "source_comment": "[UNG VIEN CU][V]",
+      "mission_category": "scientific_reference_not_landing_selection",
+      "coordinates_independently_verified": true,
+      "latitude_convention": "planetographic_on_spherical_moon_equivalent_to_planetocentric",
+      "reference_frame": "USGS Gazetteer default control network; realization not specified on retrieved page",
+      "footprint_m": 250,
+      "roi_status": "proposed_unverified",
+      "landing_suitability": "not_assessed",
+      "imagery_status": "not_linked",
+      "measurements": {
+        "slope": null,
+        "temperature": null,
+        "wind": null,
+        "mineralogy": null
+      },
+      "not_applicable": [
+        "atmospheric_wind",
+        "precipitation"
+      ],
+      "globe_point": {
+        "lat": -89.67,
+        "lng": 129.78
+      },
+      "query_info": {
+        "query_id": "shackleton_crater",
+        "planet": "Moon",
+        "lat": -89.67,
+        "lon_east": 129.78,
+        "footprint_m": 250,
+        "roi_status": "proposed_unverified"
+      },
+      "source_file": "planet_site_research.json",
+      "coordinate_role": "named_feature_center_not_landing_point",
+      "feature_diameter_km": 20.92,
+      "sources": [
+        {
+          "url": "https://planetarynames.wr.usgs.gov/Feature/5450",
+          "publisher": "IAU / USGS Gazetteer of Planetary Nomenclature",
+          "supports": "Named crater center and diameter; not a landing point",
+          "checked_date": "2026-11-14"
+        },
+        {
+          "url": "https://www.nasa.gov/mission/artemis-iv/",
+          "publisher": "NASA",
+          "supports": "Artemis IV plans a landing near the lunar South Pole; exact landing site not specified here",
+          "checked_date": "2026-11-14"
+        },
+        {
+          "url": "https://data.lroc.im-ldi.com/lroc/view_rdr/NAC_POLE_PSR_SOUTH",
+          "publisher": "LROC / Arizona State University",
+          "supports": "Permanently shadowed region mosaic, scaling and limitations",
+          "checked_date": "2026-11-14"
+        },
+        {
+          "url": "https://pgda.gsfc.nasa.gov/products/90",
+          "publisher": "NASA Goddard / LOLA",
+          "supports": "10 m grid elevation and slope maps; check effective resolution",
+          "checked_date": "2026-11-14"
+        },
+        {
+          "url": "https://svs.gsfc.nasa.gov/4716",
+          "publisher": "NASA GSFC",
+          "supports": "Regional crater approximate diameter and depth; not a 250 m measurement",
+          "checked_date": "2026-11-14"
+        },
+        {
+          "url": "https://www.janss.kr/archive/view_article?pid=jass-40-4-131",
+          "publisher": "Journal of Astronomy and Space Sciences",
+          "supports": "Regional shadowed crater context and approximate thermal range",
+          "checked_date": "2026-11-14"
+        }
+      ],
+      "research_note": "Crater center only; not a selected Artemis IV landing site. NASA describes a landing near the South Pole; do not equate the shadowed crater interior with a safe landing area.",
+      "comparison_data": {
+        "optical": "250 m imagery downloaded separately in data/raw/moon_catalog/shackleton_crater; source is LROC NAC stretched PSR mosaic, not ShadowCam",
+        "slope": "LOLA LDSM 10 m-grid 250 m statistics in separate downloaded metadata; grid size is not effective resolution",
+        "temperature": "Regional context only; local 250 m measurement not available",
+        "wind": "not_applicable_atmospheric_wind",
+        "mineralogy": "Not measured for this ROI"
+      },
+      "regional_context": {
+        "diameter_km": 20.92,
+        "approx_depth_km": 4.0,
+        "illumination": "Crater interior permanently shadowed; portions of rim have long sunlight exposure.",
+        "temperature_k": {
+          "approx_min": 40,
+          "approx_summer_high": 120,
+          "scope": "Reported for much of the crater floor/inner walls, not an observation or estimate for this 250 m ROI",
+          "source": "https://www.janss.kr/archive/view_article?pid=jass-40-4-131"
+        },
+        "note": "Regional context, not per-ROI surface measurements or evidence of landing suitability."
+      }
+    }
+  ],
+  "research_source": {
+    "file": "planet_site_research.json",
+    "sha256": "a95ec05e87289e55155b9a6e342321fa65df90f4ea3d6997ed4ef0d6a6fefd44",
+    "checked_date": "2026-11-14"
+  }
+}
