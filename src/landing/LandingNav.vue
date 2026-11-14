@@ -11,7 +11,7 @@ const emit = defineEmits<{ go: [string] }>()
         <button class="link-btn" @click="emit('go', 'how')">How it works</button>
         <button class="link-btn" @click="emit('go', 'evidence')">Evidence</button>
       </nav>
-      <a class="btn sm" href="#/setup">Open explorer <span class="arrow" aria-hidden="true">↗</span></a>
+      <a class="btn sm" href="#/setup">Open explorer</a>
     </div>
   </header>
 </template>

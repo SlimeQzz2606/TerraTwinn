@@ -41,7 +41,7 @@ function blur(event: FocusEvent) {
 
 <template>
   <section class="setup-page" aria-labelledby="welcome-title">
-    <a href="#/" class="home-link">← Back to introduction</a>
+    <a href="#/" class="home-link">Back to introduction</a>
     <div class="setup-window">
       <div class="window-bar"><span class="window-mark" aria-hidden="true">T</span><span>TerraTwinn · Mission setup</span><span class="step-label">Step 1 of 2</span></div>
       <form class="setup-form" @submit.prevent="submit">
@@ -61,12 +61,12 @@ function blur(event: FocusEvent) {
         <div class="city-field" @focusout="blur">
           <label for="mission-city" class="field-title"><span class="number">3</span> Where are you located? <span class="required">*</span></label>
           <div class="search-wrap"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="mission-city" ref="searchBox" v-model="search" type="search" placeholder="Search for a city, country or agency…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="mission-city-options" :aria-expanded="open" :aria-activedescendant="active >= 0 ? `city-option-${active}` : undefined" required @input="searched" @focus="open = true" @keydown="keydown" /><button v-if="search" type="button" class="clear-search" aria-label="Clear city" @click="search = ''; searched(); searchBox?.focus()">×</button></div>
-          <div v-if="open" class="city-dropdown"><div class="dropdown-caption">{{ results.length }} / {{ missionCities.length }} cities</div><ul id="mission-city-options" role="listbox" aria-label="Your city"><li v-for="(item, index) in results" :id="`city-option-${index}`" :key="item.id" role="option" :aria-selected="city?.id === item.id" :class="{ active: index === active }" @pointerdown.prevent="select(item)"><span><strong>{{ item.name }}</strong><small>{{ item.country }} · {{ item.association }}</small></span><span class="country-code">{{ item.country_code }}</span></li><li v-if="!results.length" class="no-results">No matching city. Try Hanoi, Houston or Paris.</li></ul><a href="https://www.geonames.org/" target="_blank" rel="noreferrer" class="catalog-credit">Coordinates: GeoNames · CC BY 4.0 ↗</a></div>
+          <div v-if="open" class="city-dropdown"><div class="dropdown-caption">{{ results.length }} / {{ missionCities.length }} cities</div><ul id="mission-city-options" role="listbox" aria-label="Your city"><li v-for="(item, index) in results" :id="`city-option-${index}`" :key="item.id" role="option" :aria-selected="city?.id === item.id" :class="{ active: index === active }" @pointerdown.prevent="select(item)"><span><strong>{{ item.name }}</strong><small>{{ item.country }} · {{ item.association }}</small></span><span class="country-code">{{ item.country_code }}</span></li><li v-if="!results.length" class="no-results">No matching city. Try Hanoi, Houston or Paris.</li></ul><a href="https://www.geonames.org/" target="_blank" rel="noreferrer" class="catalog-credit">Coordinates: GeoNames · CC BY 4.0</a></div>
           <p v-if="city" class="city-confirm" role="status">✓ {{ city.name }} · {{ city.lat.toFixed(4) }}°, {{ city.lon.toFixed(4) }}°</p>
           <p v-else class="field-hint">Select a city to calculate great-circle distances to Earth candidates.</p>
         </div>
 
-        <footer class="form-footer"><span>Complete all three fields to continue.</span><button class="next-button" type="submit" :disabled="!valid">Next <span aria-hidden="true">→</span></button></footer>
+        <footer class="form-footer"><span>Complete all three fields to continue.</span><button class="next-button" type="submit" :disabled="!valid">Next</button></footer>
       </form>
     </div>
     <p class="page-footnote">TerraTwinn · Terrain analogs for research and testing</p>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import LandingPlanet from './LandingPlanet.vue'
+import LandingPlanet from './LandingPlanetLite.vue'
 const readyCount = ref(0)
 const BASE = import.meta.env.BASE_URL
 const root = ref<HTMLElement | null>(null)
@@ -73,9 +73,9 @@ const sunStyle = computed(() => ({ opacity: 1 - smooth(progress.value / .55), tr
       <div class="landing-space">
         <div class="space-scene">
           <div class="sun-retreat" :style="sunStyle" aria-hidden="true"><div class="sun-halo"></div><div class="sun"></div></div>
-          <div class="planet mars" :style="planetStyle('mars')"><div class="arrival"><LandingPlanet :src="`${BASE}textures/mars.jpg`" :lon="62" :lat="14" label="Mars" :demo="marsDemo" :focus-progress="demoPlanet === 'mars' ? demoProgress : 0" @ready="readyCount++" /></div></div>
-          <div class="planet earth" :style="planetStyle('earth')"><div class="arrival"><LandingPlanet :src="`${BASE}textures/earth.jpg`" :lon="95" :lat="14" label="Earth" :demo="earthDemo" :focus-progress="demoProgress" atmosphere @ready="readyCount++" /></div></div>
-          <div class="planet moon" :style="planetStyle('moon')"><div class="arrival"><LandingPlanet :src="`${BASE}textures/moon.jpg`" :lon="0" :lat="8" label="Moon" :demo="moonDemo" :focus-progress="demoPlanet === 'moon' ? demoProgress : 0" @ready="readyCount++" /></div></div>
+          <div class="planet mars" :style="planetStyle('mars')"><div class="arrival"><LandingPlanet :src="`${BASE}textures/mars-preview.jpg`" :lon="62" :lat="14" label="Mars" :demo="marsDemo" :focus-progress="demoPlanet === 'mars' ? demoProgress : 0" @ready="readyCount++" /></div></div>
+          <div class="planet earth" :style="planetStyle('earth')"><div class="arrival"><LandingPlanet :src="`${BASE}textures/earth-preview.jpg`" :lon="95" :lat="14" label="Earth" :demo="earthDemo" :focus-progress="demoProgress" atmosphere @ready="readyCount++" /></div></div>
+          <div class="planet moon" :style="planetStyle('moon')"><div class="arrival"><LandingPlanet :src="`${BASE}textures/moon-preview.jpg`" :lon="0" :lat="8" label="Moon" :demo="moonDemo" :focus-progress="demoPlanet === 'moon' ? demoProgress : 0" @ready="readyCount++" /></div></div>
         </div>
         <div v-if="demoProgress > .9 && tableProgress < .15" class="demo-switch" role="group" aria-label="Choose a planetary example">
           <button :class="{ active: demoPlanet === 'moon' }" :aria-pressed="demoPlanet === 'moon'" @click="selectDemo('moon')">Moon</button>
@@ -102,11 +102,11 @@ const sunStyle = computed(() => ({ opacity: 1 - smooth(progress.value / .55), tr
               <p class="sample-note">Open a site to see available measurements. A ranking score is a research lead, not confirmation of landing suitability.</p>
             </div>
             <div class="explorer-invitation">
-              <a href="#/setup" class="explorer-link" :tabindex="tableProgress > .8 ? 0 : -1"><span>Check it out<br class="invitation-break" /> for yourself <span class="invitation-arrow" aria-hidden="true">↗</span></span></a>
+              <a href="#/setup" class="explorer-link" :tabindex="tableProgress > .8 ? 0 : -1"><span>Check it out<br class="invitation-break" /> for yourself </span></a>
             </div>
           </div>
         </section>
-        <span class="scroll-cue" :style="{ opacity: 1 - smooth(progress / .12) }" aria-hidden="true">Scroll to discover <span>↓</span></span>
+        <span class="scroll-cue" :style="{ opacity: 1 - smooth(progress / .12) }" aria-hidden="true">Scroll to discover</span>
       </div>
     </div>
   </main>

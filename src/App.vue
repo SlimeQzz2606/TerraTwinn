@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
-import LandingPage from './landing/LandingPage.vue'
 import MissionSetupForm from './components/MissionSetup.vue'
 import { readMissionSetup, saveMissionSetup, type MissionSetup } from './missionSetup'
 
 // Load the explorer interface when someone opens it.
 const PlanetaryGlobe = defineAsyncComponent(() => import('./components/PlanetaryGlobe.vue'))
+const LandingPage = defineAsyncComponent(() => import('./landing/LandingPage.vue'))
 
 const route = ref(location.hash)
 const setup = ref<MissionSetup | null>(readMissionSetup())

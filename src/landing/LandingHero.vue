@@ -8,7 +8,7 @@ const BASE = import.meta.env.BASE_URL
       <p class="eyebrow reveal">Moon · Mars · Earth</p>
       <h1 class="reveal" style="--i: 1">Explore other worlds.<br />Start with Earth.</h1>
       <p class="lede reveal" style="--i: 2">Find Earth terrain to investigate for Moon and Mars exploration tasks.</p>
-      <div class="cta reveal" style="--i: 3"><a class="btn" href="#/setup">Open explorer <span class="arrow" aria-hidden="true">→</span></a><a class="learn" href="#how" @click.prevent="($event.currentTarget as HTMLElement).closest('.lp')?.querySelector('#how')?.scrollIntoView({ behavior: 'smooth' })">See how it works ↓</a></div>
+      <div class="cta reveal" style="--i: 3"><a class="btn" href="#/setup">Open explorer</a><a class="learn" href="#how" @click.prevent="($event.currentTarget as HTMLElement).closest('.lp')?.querySelector('#how')?.scrollIntoView({ behavior: 'smooth' })">See how it works</a></div>
       <p class="scope reveal" style="--i: 4">Research prototype · selected indexed regions</p>
       <div class="hero-comparison reveal" style="--i: 5">
         <figure><img :src="`${BASE}landing/mars-query.jpg`" alt="Mars terrain at Jezero delta" /><figcaption><span>MARS</span><strong>Jezero delta</strong><small>Planetary query · 250 m ROI</small></figcaption></figure>

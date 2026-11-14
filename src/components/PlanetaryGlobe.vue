@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import Globe, { type GlobeInstance } from 'globe.gl'
-import * as THREE from 'three'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import type { GlobeInstance } from 'globe.gl'
+import type { Object3D } from 'three'
 import CandidateComparison from './CandidateComparison.vue'
 import RankingExplanation from './RankingExplanation.vue'
+import RoiTerrainVisual from './RoiTerrainVisual.vue'
+import RoiThermalVisual from './RoiThermalVisual.vue'
+import ReliefPair from './ReliefPair.vue'
 import LunarLightingPanel from './LunarLightingPanel.vue'
 import BaseCavePanel from './BaseCavePanel.vue'
+import LandingPlanetLite from '../landing/LandingPlanetLite.vue'
 import { lightingDate, type LightingPlan, type LightingSchedule } from '../lightingPlan'
 import { cityForSetup, type MissionSetup } from '../missionSetup'
 
@@ -80,6 +84,42 @@ function dividerKey(event: KeyboardEvent) {
 
 const leftViewMode = ref<ViewMode>('globe')
 const activeRoiLayer = ref<RoiLayer>('optical')
+const display3D = ref(false)
+const loading3D = ref(false)
+let Globe!: typeof import('globe.gl').default
+let THREE!: typeof import('three')
+async function enable3D() {
+  if (display3D.value) {
+    display3D.value = false
+    leftGlobe?.pauseAnimation(); rightGlobe?.pauseAnimation()
+    return
+  }
+  loading3D.value = true
+  try {
+    if (!leftGlobe) {
+      const [globeModule, threeModule] = await Promise.all([import('globe.gl'), import('three')])
+      Globe = globeModule.default; THREE = threeModule
+      display3D.value = true
+      await nextTick()
+      initLeftGlobe(); initRightGlobe(); refreshPlanetMarkers()
+    } else {
+      display3D.value = true
+      await nextTick()
+      leftGlobe.resumeAnimation(); rightGlobe?.resumeAnimation()
+    }
+    leftViewMode.value = 'globe'
+    earthInspectorOpen.value = false
+    if (currentQuery()) {
+      leftGlobe?.customLayerData([{ lat: targetInfo.value.lat, lng: targetInfo.value.lng }])
+      leftGlobe?.pointOfView({ lat: targetInfo.value.lat, lng: targetInfo.value.lng, altitude: ZOOM_ALTITUDE }, 0)
+      showLeftInfo.value = true
+    }
+    if (selectedCandidate.value) pickCandidate(selectedCandidate.value)
+  } catch {
+    display3D.value = false
+    apiStatus.value = '3D unavailable; image view remains available'
+  } finally { loading3D.value = false }
+}
 
 // Target Data
 const targetInfo = ref({
@@ -129,17 +169,17 @@ let rightResizeObserver: ResizeObserver | null = null
 const PLANET_TEXTURES = {
   moon: {
     name: 'Moon',
-    globe: `${BASE}textures/moon.jpg`,
+    globe: `${BASE}textures/moon-preview.jpg`,
     bump: `${BASE}textures/moon-bump.jpg`
   },
   mars: {
     name: 'Mars',
-    globe: `${BASE}textures/mars.jpg`,
+    globe: `${BASE}textures/mars-preview.jpg`,
     bump: `${BASE}textures/mars-bump.jpg`
   },
   earth: {
     name: 'Earth',
-    globe: `${BASE}textures/earth.jpg`,
+    globe: `${BASE}textures/earth-preview.jpg`,
     bump: `${BASE}textures/earth-topology.png`
   }
 }
@@ -165,12 +205,16 @@ interface TerrainStats {
 }
 interface Cand { breaks_down?: string; rank: number; region: string; region_name?: string; admin1?: string; country?: string; field_test?: { decision: string; reasons: string[] }; lat?: number; lon?: number; vote?: string; agreement?: number; status?: string;
   lighting?: LightingSchedule;
-  earth_slope_p90_deg?: number; cosine: number; reasoning?: { composite: number | null; reason: string };
+  earth_slope_p90_deg?: number; cosine: number | null; reasoning?: { composite: number | null; reason: string };
+  optical_context?: { image_url: string; source: string; gsd_m: number; footprint_m: number };
+  ilila?: { c_min_m: number; fault_km?: number | null; route_total_m?: number; geometry_note: string; station: { net?: string; sta?: string; km?: number }; seismic: { db_above_nlnm?: number; segments?: number; measurement_scope?: string }; context_validation?: { nasadem?: { geometry_ok?: boolean; robust_ok?: boolean; c_min_m?: number }; worldcover?: { vegetated_class_fraction?: number; tree_class_fraction?: number }; sentinel2_vegetation?: { green_fraction?: number; valid_fraction?: number; screen_ok?: boolean } } };
+  validation_assessment?: string;
   composite?: number; final_score?: number; image?: string; image_url?: string;
+  score_missing_policy?: string;
   distance_km?: number | null; roughness?: { native_metrics?: TerrainStats; comparison?: TerrainStats; available: boolean; roughness_rms_m: number; posting_m: number; sampled_width_m: number; source: string; source_url: string };
   earth_terrain?: { slope_p90?: number; baseline_m?: number };
   score_components?: Record<string, { value: number | null; weight: number; confidence: number }> }
-interface Query { info: { query_id: string; name?: string; lat: number; lon_east: number; product?: string; slope_p90_deg?: number }; candidates: Cand[] }
+interface Query { info: { query_id: string; name?: string; lat: number; lon_east: number; product?: string; slope_p90_deg?: number; image_available?: boolean; image_note?: string }; candidates: Cand[] }
 const queries = ref<Query[]>([])
 const selectedQuery = ref<string>('')
 const siteSearch = ref('')
@@ -191,13 +235,7 @@ function refreshPlanetMarkers() {
     for (const q of queries.value) {
       if (!all.has(q.info.query_id)) all.set(q.info.query_id, { id: q.info.query_id, name: queryName(q), lat: q.info.lat, lng: q.info.lon_east })
     }
-    // Fisher–Yates: sample without replacement; keep the sample for this page visit.
-    const shuffled = [...all.values()].filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!]
-    }
-    markerSamples[body] = shuffled.slice(0, Math.ceil(shuffled.length / 2))
+    markerSamples[body] = [...all.values()].filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
   }
   const sample = [...markerSamples[body]!]
   const selected = currentQuery()
@@ -218,7 +256,12 @@ async function loadMarkerCatalog() {
     refreshPlanetMarkers()
   } catch { /* The existing report locations remain available when the catalog cannot load. */ }
 }
-const filteredSites = computed(() => queries.value.filter(q => `${queryName(q)} ${q.info.query_id.replace(/_/g, ' ')}`.toLowerCase().includes(siteSearch.value.toLowerCase().trim())))
+const filteredSites = computed(() => {
+  const text = siteSearch.value.toLowerCase().trim()
+  const current = queries.value.find(q => q.info.query_id === selectedQuery.value)
+  if (!text || (current && text === queryName(current).toLowerCase())) return queries.value
+  return queries.value.filter(q => `${queryName(q)} ${q.info.query_id.replace(/_/g, ' ')}`.toLowerCase().includes(text))
+})
 function closeSiteSearch(event: FocusEvent) { if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) searchOpen.value = false }
 function chooseSite(q: Query) {
   selectedQuery.value = q.info.query_id
@@ -278,6 +321,17 @@ function openEarthInspector() { if (selectedCandidate.value) { earthInspectorTab
 function closeEarthInspector() { earthInspectorOpen.value = false }
 watch([selectedQuery, currentPlanet], () => { earthInspectorOpen.value = false })
 const runId = ref('')
+const isIlilaRun = computed(() => runId.value.startsWith('moon_judge_ilila_'))
+const availableRuns = ref<{ id: string; label?: string }[]>([])
+const planetRuns = computed(() => availableRuns.value.filter(r => r.id.startsWith(currentPlanet.value + '_judge') && !r.id.endsWith('_source')))
+async function selectRun(id: string) {
+  const response = await fetch(reportUrl(id))
+  if (!response.ok) { apiStatus.value = 'Could not load the selected run'; return }
+  reports.value[currentPlanet.value] = { runId: id, queries: await response.json() }
+  moonVariant.value = 'base'
+  delete markerSamples[currentPlanet.value]
+  useReport(currentPlanet.value)
+}
 // ---- Validation drawer (/api/analogs/validation) ----
 const showValidation = ref(false)
 const validation = ref<any>(null)
@@ -294,11 +348,11 @@ const rankingScore = (c: Cand) => c.final_score ?? c.composite
 const scoreText = (c: Cand) => rankingScore(c) != null ? `${(rankingScore(c)! * 100).toFixed(1)}/100` : null
 const candidateStyle = (c: Cand, index: number) => {
   const image = c.image_url ?? (c.image ? `/api/analogs/${runId.value}/img/${c.image}` : null)
-  return image ? { backgroundImage: `url(${image})`, backgroundPosition: 'center', backgroundSize: 'cover' }
+  return image ? { backgroundImage: `url(${image})`, backgroundPosition: 'center', backgroundSize: isIlilaRun.value ? 'contain' : 'cover' }
     : { backgroundImage: `url(${imgUrl('top5')})`, backgroundPosition: `${(index + 1) * 20}% 0` }
 }
 const candidateSlope = (c: Cand) => c.earth_slope_p90_deg ?? c.earth_terrain?.slope_p90
-const componentNames: Record<string, string> = { visual: 'Image', lithology: 'Rock / mineral', temperature: 'Temperature', slope: 'Slope p90', wind: 'Mean wind' }
+const componentNames: Record<string, string> = { visual: 'Image', lithology: 'Rock / mineral', temperature: 'Temperature', slope: 'Slope p90', wind: 'Mean wind', geometry: 'iLILA geometry', seismic: 'Seismic noise (Earth NLNM/NHNM reference)', thermal: 'Thermal cycling', anchoring: 'Anchoring', anthropogenic: 'Human noise' }
 const reportUrl = (id: string) => `/api/analogs/${id}/report?` + new URLSearchParams({
   user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon), mission_type: props.setup.mission,
 })
@@ -331,6 +385,10 @@ const terrainDifference = (key: typeof terrainRows[number]['key'], unit: string)
 }
 const thermalInertia = computed(() => measurements.value?.thermal_inertia ?? themis.value)
 const temperatureContext = computed(() => measurements.value?.temperature_context ?? null)
+const earthThermalRows = computed(() => (candidates.value as any[]).slice(0, 5).flatMap(c => {
+  const m = c.environment?.lst_modis
+  return m?.lst_day_mean_c != null && m?.lst_night_mean_c != null ? [{ name: `#${c.rank} ${c.region_name ?? c.region}`, night: m.lst_night_mean_c, day: m.lst_day_mean_c }] : []
+}))
 const footprint = computed(() => ((currentQuery()?.info as any)?.footprint_m ?? 250))
 
 async function reportJson(url: string) {
@@ -343,23 +401,28 @@ async function reportJson(url: string) {
 
 async function loadReport() {
   try {
-    const runs: { id: string }[] = await reportJson('/api/analogs/runs')
+    const runs: { id: string; label?: string }[] = await reportJson('/api/analogs/runs')
+    availableRuns.value = runs
     const pick = (...ids: string[]) => ids.map(id => runs.find(r => r.id === id)).find(Boolean)
-    const run = pick('mars_judge_env_global', 'mars_judge_screen_gated_veg_div2_env', 'mars_judge_global', 'mars_judge_screen_gated_veg_div2')
-      ?? runs.find((r) => r.id.startsWith('mars_judge') && !r.id.includes('catalog_source'))
+    const body = currentPlanet.value
+    const run = body === 'mars'
+      ? pick('mars_judge_colab_env_global', 'mars_judge_env_global', 'mars_judge_screen_gated_veg_div2_env', 'mars_judge_global', 'mars_judge_screen_gated_veg_div2')
+      : pick('moon_judge_colab_env_global', 'moon_judge_env_global', 'moon_judge_screen_gated_veg_div2_env', 'moon_judge_global', 'moon_judge_screen_gated_veg_div2')
     if (!run) { apiStatus.value = 'No analog run found'; return }
-    reports.value.mars = { runId: run.id, queries: await reportJson(reportUrl(run.id)) }
-    const moon = pick('moon_judge_env_global', 'moon_judge_screen_gated_veg_div2_env', 'moon_judge_global', 'moon_judge_screen_gated_veg_div2')
-    if (moon) reports.value.moon = { runId: moon.id, queries: await reportJson(reportUrl(moon.id)) }
-    const supp = runs.find((r) => r.id === 'moon_judge_screen_gated_veg_div2_supp')
-    if (supp) reports.value.moon_supp = { runId: supp.id, queries: await reportJson(reportUrl(supp.id)) }
-    useReport(currentPlanet.value)
+    reports.value[body] = { runId: run.id, queries: await reportJson(reportUrl(run.id)) }
+    useReport(body)
   } catch (e) {
     apiStatus.value = e instanceof Error ? e.message : 'Backend request failed.'
   }
 }
 
 const reports = ref<Record<string, { runId: string; queries: any[] }>>({})
+// Presentation scope: the four curated Moon/Mars sites. Add ?dev=1 to the address to see every site and the run picker.
+const devMode = new URLSearchParams(location.search).has('dev')
+const DEMO_SITES: Record<string, string[]> = {
+  moon: ['change7_shackleton_ridge', 'artemis_mons_mouton_plateau'],
+  mars: ['exomars_backup_mawrth', 'starship_phlegra_montes'],
+}
 
 const moonVariant = ref<'base' | 'supp'>('base')
 
@@ -368,7 +431,9 @@ function useReport(planet: PlanetKey) {
   if (!r) { runId.value = ''; queries.value = []; selectedQuery.value = ''; apiStatus.value = `No ${planet} analog run`; return }
   runId.value = r.runId
   // Terra Sirenum is hidden: its CTX query is only 50x50 px (5 m) and every candidate scored cosine 0.13-0.18 (noise). Results stay in the report files.
-  const shown = r.queries.filter((q: any) => !q.info.query_id.includes('terra_sirenum'))
+  let shown = r.queries.filter((q: any) => !q.info.query_id.includes('terra_sirenum'))
+  const demo = shown.filter((q: any) => (DEMO_SITES[planet] ?? []).includes(q.info.query_id))
+  if (!devMode && demo.length) shown = demo
   queries.value = shown
   selectedQuery.value = ''
   siteSearch.value = ''
@@ -376,20 +441,24 @@ function useReport(planet: PlanetKey) {
   candidates.value = []
   earthMatched.value = false
   rightGlobe?.customLayerData([])
-  apiStatus.value = `${shown.length} ${planet === 'mars' ? 'Mars' : 'Moon'} site(s) · run ${r.runId}`
+  const usable = shown.filter(q => q.info.image_available !== false).length
+  apiStatus.value = `${shown.length} ${planet === 'mars' ? 'Mars' : 'Moon'} sites · ${usable} with images · run ${r.runId}`
+  const initial = shown.find(q => q.info.image_available !== false) ?? shown[0]
+  if (initial) chooseSite(initial)
 }
 
 function currentQuery() { return queries.value.find((q) => q.info.query_id === selectedQuery.value) }
+const queryHasImage = computed(() => currentQuery()?.info.image_available !== false)
 
 const ZOOM_ALTITUDE = 0.35   // close enough to see the surface texture around the site
 
 function applyQuery(animate = false) {
   resultsRequested.value = false
   const q = currentQuery()
-  if (!q || !leftGlobe) return
+  if (!q) return
   showLeftInfo.value = true
   targetInfo.value = { lat: q.info.lat, lng: q.info.lon_east, name: queryName(q),
-    meta: q.info.product ?? 'HiRISE', slope: q.info.slope_p90_deg != null ? `p90 ${q.info.slope_p90_deg}°` : 'no DTM',
+    meta: q.info.product ?? (q.info.image_available === false ? 'Optical imagery unavailable' : 'Product not provided'), slope: q.info.slope_p90_deg != null ? `p90 ${q.info.slope_p90_deg}°` : 'no DTM',
     roughness: 'Not available: no suitable DEM', elevationRange: 'n/a' }
   const terrain = (q.info as any).measurements?.terrain
   if (terrain?.available) {
@@ -397,9 +466,9 @@ function applyQuery(animate = false) {
     targetInfo.value.roughness = terrain.roughness_rms_m != null ? `${terrain.roughness_rms_m.toFixed(2)} m RMS (${Number(terrain.posting_m.toFixed(2))} m grid)` : 'Not available: no verified DEM roughness'
     targetInfo.value.elevationRange = `${terrain.elevation_range_m.toFixed(1)} m`
   }
-  leftGlobe.customLayerData([{ lat: targetInfo.value.lat, lng: targetInfo.value.lng }])
+  leftGlobe?.customLayerData([{ lat: targetInfo.value.lat, lng: targetInfo.value.lng }])
   refreshPlanetMarkers()
-  leftGlobe.pointOfView({ lat: targetInfo.value.lat, lng: targetInfo.value.lng, altitude: ZOOM_ALTITUDE }, animate === true ? 900 : 0)
+  leftGlobe?.pointOfView({ lat: targetInfo.value.lat, lng: targetInfo.value.lng, altitude: ZOOM_ALTITUDE }, animate === true ? 900 : 0)
   candidates.value = []
   earthMatched.value = false
   rightGlobe?.customLayerData([])
@@ -411,7 +480,7 @@ function pickCandidate(c: Cand) {
   rightGlobe?.pointOfView({ lat: c.lat, lng: c.lon, altitude: 0.15 }, 1000)
   matchedAnalog.value = {
     name: `#${c.rank} ${candidateName(c)}`, region: 'Passed the field-test screen',
-    lat: Number((c.lat ?? 0).toFixed(3)), lng: Number((c.lon ?? 0).toFixed(3)),
+    lat: c.lat, lng: c.lon,
     matchScore: scoreText(c) ?? (c.reasoning?.composite != null ? `${Math.round(c.reasoning.composite * 100)}%` : '–'),
     slope: candidateSlope(c) != null ? `p90 ${candidateSlope(c)!.toFixed(2)}°` : 'n/a',
     roughness: c.roughness?.available ? `${c.roughness.roughness_rms_m.toFixed(2)} m RMS (${c.roughness.posting_m} m grid)` : 'Not available: no suitable DEM',
@@ -474,11 +543,11 @@ function initLeftGlobe() {
   const height = leftGlobeContainer.value.clientHeight || 700
   const cfg = PLANET_TEXTURES[currentPlanet.value]
 
-  leftGlobe = new Globe(leftGlobeContainer.value)
+  leftGlobe = new Globe(leftGlobeContainer.value, { rendererConfig: { antialias: false, powerPreference: 'low-power' } })
     .width(width)
     .height(height)
     .globeImageUrl(cfg.globe)
-    .bumpImageUrl(cfg.bump)
+    .globeCurvatureResolution(8)
     .backgroundColor('#ffffff')
     .showAtmosphere(false)
     .labelsData([])
@@ -520,12 +589,13 @@ function initLeftGlobe() {
   const controls = leftGlobe.controls()
   if (controls) {
     controls.autoRotate = false
-    controls.enableDamping = true
+    controls.enableDamping = false
     controls.dampingFactor = 0.05
   }
 
   // Set initial camera view
   leftGlobe.pointOfView({ lat: 0, lng: 0, altitude: 2.2 })
+  leftGlobe.renderer().setPixelRatio(0.6)
 
   leftResizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
@@ -545,13 +615,13 @@ function initRightGlobe() {
   const height = rightGlobeContainer.value.clientHeight || 700
   const cfg = PLANET_TEXTURES.earth
 
-  rightGlobe = new Globe(rightGlobeContainer.value)
+  rightGlobe = new Globe(rightGlobeContainer.value, { rendererConfig: { antialias: false, powerPreference: 'low-power' } })
     .width(width)
     .height(height)
     .globeImageUrl(cfg.globe)
-    .bumpImageUrl(cfg.bump)
+    .globeCurvatureResolution(8)
     .backgroundColor('#ffffff')
-    .showAtmosphere(true)
+    .showAtmosphere(false)
     .atmosphereColor('#8ec5fc')
     .atmosphereAltitude(0.12)
     .customLayerData([])
@@ -560,7 +630,7 @@ function initRightGlobe() {
       pin.scale.setScalar(0.055)
       return pin
     })
-    .customThreeObjectUpdate((obj: THREE.Object3D, d: any) => {
+    .customThreeObjectUpdate((obj: Object3D, d: any) => {
       if (!rightGlobe) return
       const coords = rightGlobe.getCoords(d.lat, d.lng, 0.0001)
       if (coords) {
@@ -573,12 +643,13 @@ function initRightGlobe() {
   const controls = rightGlobe.controls()
   if (controls) {
     controls.autoRotate = false
-    controls.enableDamping = true
+    controls.enableDamping = false
     controls.dampingFactor = 0.05
   }
 
   // Focus Earth initially on Western Hemisphere
   rightGlobe.pointOfView({ lat: 20, lng: -100, altitude: 2.2 })
+  rightGlobe.renderer().setPixelRatio(0.6)
 
   rightResizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
@@ -714,8 +785,8 @@ async function findTerrestrialAnalogs() {
   }
   resultsHidden.value = false
   resultsRequested.value = true
-  if (isLunarLanding.value) { await searchLighting(); return }
-  candidates.value = q.candidates.filter((c) => c.field_test?.decision === 'ACCEPTED' && c.lat != null && c.lon != null)
+  if (isLunarLanding.value && !isIlilaRun.value) { await searchLighting(); return }
+  candidates.value = q.candidates.filter((c) => (isIlilaRun.value || c.field_test?.decision === 'ACCEPTED') && c.lat != null && c.lon != null)
   if (isBaseMission.value) showCaveRecommendations.value = true
   rightGlobe?.customLayerData([])
   earthMatched.value = false
@@ -726,8 +797,6 @@ async function findTerrestrialAnalogs() {
 onMounted(() => {
   document.addEventListener('pointerdown', closeMenuOnOutsideClick)
   window.addEventListener('resize', restoreOnNarrowScreen)
-  initLeftGlobe()
-  initRightGlobe()
   loadReport()
   loadMarkerCatalog()
 })
@@ -746,13 +815,19 @@ onBeforeUnmount(() => {
   <div class="terratwinn-app">
     <!-- Top Bar: Options, Tools, TerraTwinn, Export -->
     <header class="top-bar">
+      <label v-if="devMode" class="run-select">Result run
+        <select aria-label="Result run" :value="runId" :disabled="!runId" @change="selectRun(($event.target as HTMLSelectElement).value)">
+          <option v-for="run in planetRuns" :key="run.id" :value="run.id">{{ run.label ?? run.id }}</option>
+        </select>
+      </label>
       <div class="top-center">
-        <h1 class="brand-title">TerraTwinn</h1>
-        <small class="api-line" :title="'Model opinions, not geological ground truth'">{{ apiStatus }}</small>
+        <h1 class="brand-title"><a class="brand-link" href="#/setup" title="Back to mission setup">TerraTwinn</a></h1>
+        <small v-if="devMode || apiStatus.startsWith('Backend')" class="api-line">{{ apiStatus }}</small>
       </div>
 
 
       <div class="top-right" data-menu="export">
+        <button class="display-mode-btn" :disabled="loading3D" @click="enable3D">{{ loading3D ? 'Loading 3D…' : display3D ? 'Use image view' : 'Enable 3D globe' }}</button>
         <button class="export-capsule-btn" :aria-expanded="menu === 'export'" @click="toggleMenu('export')">
           <span>Export</span>
           <svg class="chevron-down-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
@@ -761,7 +836,7 @@ onBeforeUnmount(() => {
         </button>
         <div v-if="menu === 'export'" class="menu-panel menu-panel-right">
           <button class="menu-link" :disabled="!selectedQuery" @click="downloadJson">Download this site's report (JSON)</button>
-          <a v-if="queries.length && candidates.length" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
+          <a v-if="queries.length && candidates.length && !isIlilaRun" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
         </div>
       </div>
     </header>
@@ -784,7 +859,17 @@ onBeforeUnmount(() => {
         class="viewport-half left-half" :class="{ 'pane-expanded': collapsedPane === 'right', 'is-fullscreen': fullscreenPane === 'left' }"
       >
         <!-- 3D Globe Canvas Container: Permanently mounted so WebGL canvas is never destroyed -->
-        <div ref="leftGlobeContainer" class="globe-canvas"></div>
+        <div v-show="display3D" ref="leftGlobeContainer" class="globe-canvas"></div>
+        <div v-if="!display3D" class="image-view">
+          <template v-if="selectedQuery && queryHasImage && !isIlilaRun">
+            <img :src="imgUrl('query')" :alt="`${targetInfo.name} optical ROI`" />
+            <p>{{ targetInfo.name }} · {{ footprint }} m optical ROI</p>
+          </template>
+          <template v-else>
+            <div class="image-planet-preview"><LandingPlanetLite :src="`${BASE}textures/${currentPlanet}-preview.jpg`" :lon="0" :lat="0" :label="currentPlanet === 'mars' ? 'Mars' : 'Moon'" /></div>
+            <p>{{ selectedQuery ? 'No planetary optical image for this site. See the available evidence.' : 'Loading site imagery…' }}</p>
+          </template>
+        </div>
 
         <!-- Mode 1: 3D Globe Controls Layer -->
         <div v-show="leftViewMode === 'globe'" class="globe-controls-layer">
@@ -810,13 +895,13 @@ onBeforeUnmount(() => {
               <div class="popover-line">Long <strong>{{ targetInfo.lng }}</strong></div>
               <div class="popover-line">Lat <strong>{{ targetInfo.lat }}</strong></div>
               <div class="popover-title"><strong>{{ targetInfo.name }}</strong></div>
-              <div class="popover-meta">({{ targetInfo.meta }})</div>
 
               <div class="popover-divider"></div>
 
               <button class="roi-preview" :aria-label="`Inspect ${footprint} m ROI for ${targetInfo.name}`" @click="enterRoiMode">
-                <img :src="imgUrl('query')" :alt="`${targetInfo.name} surface preview`" draggable="false" />
-                <span>Inspect {{ footprint }} m ROI <span aria-hidden="true">↗</span></span>
+                <img v-if="queryHasImage && !isIlilaRun" :src="imgUrl('query')" :alt="`${targetInfo.name} surface preview`" draggable="false" />
+                <strong v-if="!queryHasImage">Optical imagery unavailable</strong>
+                <span>Inspect {{ footprint }} m ROI</span>
               </button>
             </div>
             <!-- Pointer tail pointing down to the 'i' icon below -->
@@ -858,7 +943,7 @@ onBeforeUnmount(() => {
                 <span>Back</span>
               </button>
               <!-- Optical Surface Texture Layer -->
-              <div v-if="activeRoiLayer === 'optical' && isMars" class="roi-surface-layer">
+              <div v-if="activeRoiLayer === 'optical' && isMars && queryHasImage && !isIlilaRun" class="roi-surface-layer">
                 <div ref="cropFrame" class="crop-frame">
                   <img :src="imgUrl('query')" :alt="`${targetInfo.name} surface image`" draggable="false" />
                   <div class="crop-guides" aria-hidden="true">
@@ -873,28 +958,22 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </div>
-              <div v-else-if="activeRoiLayer === 'optical'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>No image</strong><span>No analog run for this planet.</span></div></div>
+              <div v-else-if="activeRoiLayer === 'optical'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>Optical imagery unavailable</strong><span>{{ currentQuery()?.info.image_note ?? 'This run has no planetary query photograph.' }}</span></div></div>
 
               <!-- Slope / DEM Heatmap Layer -->
               <div v-else-if="activeRoiLayer === 'slope' && isMars" class="roi-surface-layer real-evidence">
-                <div class="real-card">
+                <div class="real-card wide">
                   <strong>Slope / DEM</strong>
-                  <img v-if="terrainMeasurement?.image_url" :src="terrainMeasurement.image_url" class="terrain-preview" alt="DEM-derived slope map, purple 0 degrees to yellow 45 degrees" />
-                  <small v-if="terrainMeasurement?.image_url" class="slope-scale">0° · purple <span>yellow · 45°</span></small>
-                  <span>{{ targetInfo.slope }}</span>
-                  <template v-if="terrainMeasurement"><small>Mean {{ terrainMeasurement.slope_mean_deg }}° · elevation range {{ terrainMeasurement.elevation_range_m }} m</small><small>{{ terrainMeasurement.baseline_m.toFixed(1) }} m measurement baseline · {{ terrainMeasurement.posting_m.toFixed(1) }} m DEM grid</small><a :href="terrainMeasurement.source_url" target="_blank" rel="noreferrer">{{ terrainMeasurement.source }} · source raster ↗</a><small>{{ terrainMeasurement.note }}</small></template>
-                  <small v-else>{{ (currentQuery()?.info as any)?.slope_note ?? 'No verified high-resolution DEM window is available at this exact location.' }}</small>
+                  <RoiTerrainVisual :body="currentPlanet === 'mars' ? 'mars' : 'moon'" :id="selectedQuery" :name="targetInfo.name" :terrain="terrainMeasurement" :regional="measurements?.regional_terrain ?? null" :note="(currentQuery()?.info as any)?.slope_note" />
                 </div>
               </div>
               <div v-else-if="activeRoiLayer === 'slope'" class="roi-surface-layer real-evidence"><div class="real-card"><strong>No slope data</strong><span>No analog run for this planet.</span></div></div>
 
               <!-- Thermal Layer -->
               <div v-else-if="isMars" class="roi-surface-layer real-evidence">
-                <div class="real-card">
-                  <strong>{{ thermalInertia ? 'THEMIS thermal inertia' : 'Surface temperature context' }}</strong>
-                  <template v-if="thermalInertia"><span>ROI sample: {{ thermalInertia.window_250m?.mean }} tiu</span><span>5 km mean: {{ thermalInertia.square_5km?.mean }} tiu</span><small>100 m pixels · approximate ROI window · about 20% product accuracy</small><small>{{ thermalInertia.note ?? 'Thermal inertia is a surface-property proxy, not a temperature.' }}</small><a v-if="thermalInertia.source_url" :href="thermalInertia.source_url" target="_blank" rel="noreferrer">USGS quantitative THEMIS source ↗</a></template>
-                  <template v-if="temperatureContext"><strong>{{ temperatureContext.provenance === 'model' ? 'Climate / thermal model' : temperatureContext.provenance === 'measured' ? 'Regional satellite context' : 'Estimated context' }}</strong><span>Mid-range {{ temperatureContext.midrange_K.toFixed(1) }} K · range {{ temperatureContext.range_K.toFixed(1) }} K</span><small>{{ temperatureContext.source }}</small><small>{{ temperatureContext.note }}</small></template>
-                  <span v-if="!thermalInertia && !temperatureContext">No verified thermal data is available for this location.</span>
+                <div class="real-card wide">
+                  <strong>Surface temperature</strong>
+                  <RoiThermalVisual :name="targetInfo.name" :context="temperatureContext" :inertia="thermalInertia" :earth="earthThermalRows" :earth-total="Math.min(5, candidates.length)" />
                 </div>
               </div>
               <div v-else class="roi-surface-layer real-evidence"><div class="real-card"><strong>No thermal data</strong><span>No analog run for this planet.</span></div></div>
@@ -961,9 +1040,8 @@ onBeforeUnmount(() => {
                 <p v-if="lightingError" role="alert">{{lightingError}}</p>
               </div>
               <div class="roi-cta-bar">
-                <button class="find-analogs-btn" :disabled="lightingBusy" @click="findTerrestrialAnalogs">
+                <button class="find-analogs-btn" :disabled="lightingBusy || (!queryHasImage && !isIlilaRun)" @click="findTerrestrialAnalogs">
                   <span>{{lightingBusy ? 'Calculating light matches…' : 'Find Terrestrial Analogs'}}</span>
-                  <span class="arrow-symbol">→</span>
                 </button>
               </div>
             </div>
@@ -997,14 +1075,25 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- 3D Globe Canvas Container -->
-        <div ref="rightGlobeContainer" class="globe-canvas"></div>
+        <div v-show="display3D" ref="rightGlobeContainer" class="globe-canvas"></div>
+        <div v-if="!display3D" class="image-view earth-image-view">
+          <template v-if="selectedCandidate">
+            <img v-if="selectedCandidate.optical_context" :src="selectedCandidate.optical_context.image_url" :alt="`${candidateName(selectedCandidate)} satellite optical ROI`" />
+            <div v-else class="image-view-candidate" :style="candidateStyle(selectedCandidate, selectedCandidateIndex)" role="img" :aria-label="`Optical ROI of ${candidateName(selectedCandidate)}`"></div>
+            <p>{{ candidateName(selectedCandidate) }}</p>
+          </template>
+          <template v-else>
+            <div class="image-planet-preview"><LandingPlanetLite :src="`${BASE}textures/earth-preview.jpg`" :lon="0" :lat="0" label="Earth" atmosphere /></div>
+            <p>Earth overview · Find analogs to view site imagery.</p>
+          </template>
+        </div>
 
         <!-- Top-5 candidate cards -->
         <p v-if="resultsRequested && !candidates.length && !lightingBusy && !lightingError" class="no-accepted-results">{{isLunarLanding ? 'No accepted sites have a matching low-Sun window in this search period. Try another lunar reference time.' : 'No candidates passed the field-test screen for this location.'}}</p>
         <div v-if="candidates.length" class="results-drawer" :class="{ 'is-hidden': resultsHidden }">
           <button class="results-toggle" :aria-expanded="!resultsHidden" :aria-label="resultsHidden ? 'Show candidates' : 'Hide candidates'" @click="resultsHidden = !resultsHidden">{{ resultsHidden ? '‹' : '›' }}</button>
           <div class="cand-list" aria-label="Top-5 Earth candidates" :inert="resultsHidden">
-          <p class="screen-caption">Accepted by the field-test screen. Landing safety has not been assessed.</p>
+          <p class="screen-caption">{{ isIlilaRun ? 'Preliminary iLILA candidates. Local noise and construction suitability remain unverified.' : 'Accepted by the field-test screen. Landing safety has not been assessed.' }}</p>
           <button v-for="c in candidates" :key="c.rank" class="cand-card" :class="{ sel: earthMatched && matchedAnalog.name.startsWith('#' + c.rank + ' ') }" @click="pickCandidate(c)">
             <span class="cand-main">
               <span class="candidate-card-top">
@@ -1031,7 +1120,7 @@ onBeforeUnmount(() => {
             <div class="analog-match-badge-wrap">
               <span class="analog-score-pill" :class="statusClass(matchedStatus)" title="Uncalibrated heuristic; not a probability of a true analog.">{{ selectedCandidate && rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence score' }} {{ matchedAnalog.matchScore }}</span>
             </div>
-            <button v-if="selectedCandidateIndex >= 0" class="earth-preview earth-preview-button" :aria-label="`Inspect ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}" @click="openEarthInspector"><span>Inspect candidate ↗</span></button>
+            <button v-if="selectedCandidateIndex >= 0" class="earth-preview earth-preview-button" :aria-label="`Inspect ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}" @click="openEarthInspector"><span>Inspect candidate</span></button>
           </div>
           <!-- Pointer tail pointing down to Earth's 'i' icon below -->
           <div class="popover-pointer-down"></div>
@@ -1067,26 +1156,44 @@ onBeforeUnmount(() => {
               <div><strong>{{ matchedAnalog.name.replace(/_/g, ' ') }}</strong><span class="earth-inspector-status" :class="statusClass(matchedStatus)">{{ statusText(matchedStatus) }}</span></div>
             </header>
             <div class="earth-inspector-content">
-              <p class="earth-context">Comparing the original {{ footprint }} m planetary ROI with a precomputed Earth candidate. The crop preview does not change these results.</p>
-              <div class="earth-comparison" :class="{ compact: earthInspectorTab === 'compare' }">
-                <figure><img :src="imgUrl('query')" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>Original ROI: {{ footprint }} m</span></figcaption></figure>
-                <figure><div class="earth-comparison-candidate" role="img" :aria-label="`Image of ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}"></div><figcaption><strong>Earth · {{ candidateName(selectedCandidate) }}</strong><span>{{ runId.endsWith('_global') ? 'Catalog ROI: 250 m' : 'Candidate footprint: not provided' }}</span></figcaption></figure>
+              <p v-if="runId === 'moon_judge_ilila_testbed'" class="earth-context">Legacy report: seismic reference interpolation and relative geometry scores are outdated. Use the corrected expanded iLILA run.</p>
+              <p v-if="isIlilaRun" class="earth-context">Preliminary iLILA testbed screening. Profile plots are not photographs. No image similarity or construction suitability has been established.</p>
+              <figure v-if="selectedCandidate.optical_context" class="earth-detail">
+                <img :src="selectedCandidate.optical_context.image_url" alt="Satellite optical ROI at the exact candidate coordinates" style="width: 224px; max-width: 100%" />
+                <figcaption>{{ selectedCandidate.optical_context.source }} · {{ selectedCandidate.optical_context.gsd_m }} m/pixel · {{ selectedCandidate.optical_context.footprint_m }} m footprint. Optical context for image features; separate from the iLILA engineering score.</figcaption>
+              </figure>
+              <div class="earth-comparison" :class="{ compact: earthInspectorTab !== 'overview', 'ilila-profiles': isIlilaRun }">
+                <figure v-if="!isIlilaRun"><img :src="imgUrl('query')" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>Original ROI: {{ footprint }} m</span></figcaption></figure>
+                <figure><div class="earth-comparison-candidate" role="img" :aria-label="`Image of ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}"></div><figcaption><strong>Earth · {{ candidateName(selectedCandidate) }}</strong><span>{{ isIlilaRun ? 'Engineering profiles: two 1 km arms and station PSD' : runId.endsWith('_global') ? 'Catalog ROI: 250 m' : 'Candidate footprint: not provided' }}</span></figcaption></figure>
               </div>
               <nav class="earth-tabs" aria-label="Candidate information">
                 <button v-for="tab in (['overview', 'compare', 'lighting', 'terrain', 'sources'] as const)" v-show="tab !== 'lighting' || isLunarLanding" :key="tab" :class="{ active: earthInspectorTab === tab }" @click="earthInspectorTab = tab">{{ tab === 'sources' ? 'Evidence & sources' : tab === 'compare' ? 'Compare candidates' : tab === 'lighting' ? 'Light & test dates' : tab === 'terrain' ? 'Terrain' : 'Overview' }}</button>
               </nav>
               <section v-if="earthInspectorTab === 'overview'" class="earth-detail">
-                <h2>Candidate overview</h2>
-                <button class="compare-candidates-cta" @click="earthInspectorTab = 'compare'">Compare all 5 Earth candidates →</button>
-                <p>Rank {{ selectedCandidate.rank }} by {{ rankingScore(selectedCandidate) != null ? 'multi-factor score' : 'image similarity' }}. Field-test screening: <strong>{{ statusText(matchedStatus) }}</strong>.</p>
+                <div class="overview-chips">
+                  <span>{{ Number(selectedCandidate.lat).toFixed(4) }}°, {{ Number(selectedCandidate.lon).toFixed(4) }}°</span>
+                  <span v-if="selectedCandidate.distance_km != null">{{ Math.round(selectedCandidate.distance_km).toLocaleString() }} km from {{ originCity.name }}</span>
+                  <span :class="statusClass(matchedStatus)">Field test: {{ statusText(matchedStatus) }}</span>
+                  <button class="compare-candidates-cta" @click="earthInspectorTab = 'compare'">Compare all {{ candidates.length }} candidates</button>
+                </div>
                 <RankingExplanation :candidate="selectedCandidate" :candidates="candidates" />
-                <p v-if="selectedCandidate.distance_km != null">{{ Math.round(selectedCandidate.distance_km).toLocaleString() }} km great-circle distance from {{ originCity.name }}, {{ originCity.country }}.</p>
-                <p>Compare terrain, regional surface temperature, wind and reported rock types using the charts. Each chart shows its source and measurement scale.</p>
-                <p class="earth-muted">Results are research candidates based on images and environmental data. Field-test screening does not replace a site survey.</p>
-                <dl><div><dt>Location</dt><dd>{{ selectedCandidate.lat }}°, {{ selectedCandidate.lon }}°</dd></div><div><dt>Human verification</dt><dd>Not provided</dd></div></dl>
+                <dl v-if="selectedCandidate.ilila" class="ilila-evidence">
+                  <div v-if="selectedCandidate.validation_assessment"><dt>Validation assessment</dt><dd>{{ selectedCandidate.validation_assessment.replace(/_/g, ' ') }} · station proxy, not a site noise measurement</dd></div>
+                  <div><dt>Sampled minimum beam clearance</dt><dd>{{ selectedCandidate.ilila.c_min_m.toFixed(2) }} m (DSM)</dd></div>
+                  <div><dt>Seismic station proxy</dt><dd>{{ selectedCandidate.ilila.station.net }}.{{ selectedCandidate.ilila.station.sta }} · {{ selectedCandidate.ilila.station.km }} km from candidate</dd></div>
+                  <div><dt>Median PSD above Earth NLNM</dt><dd>{{ selectedCandidate.ilila.seismic.db_above_nlnm?.toFixed(1) }} dB · {{ selectedCandidate.ilila.seismic.segments }} segments</dd></div>
+                  <div><dt>Mapped fault distance</dt><dd>{{ selectedCandidate.ilila.fault_km?.toFixed(1) ?? 'Unknown' }} km</dd></div>
+                  <div><dt>Geometry score rule</dt><dd>{{ selectedCandidate.ilila.geometry_note }}</dd></div>
+                  <template v-if="selectedCandidate.ilila.context_validation">
+                    <div><dt>NASADEM geometry / perturbation check</dt><dd>{{ selectedCandidate.ilila.context_validation.nasadem?.geometry_ok ? 'Pass' : 'Not passed' }} / {{ selectedCandidate.ilila.context_validation.nasadem?.robust_ok ? 'Pass' : 'Not passed' }}</dd></div>
+                    <div><dt>WorldCover tree-class fraction (2021)</dt><dd>{{ selectedCandidate.ilila.context_validation.worldcover?.tree_class_fraction != null ? (selectedCandidate.ilila.context_validation.worldcover.tree_class_fraction * 100).toFixed(1) + '%' : 'Unavailable' }} of arm corridors · map proxy</dd></div>
+                    <div><dt>Sentinel-2 green-pixel fraction (2023)</dt><dd>{{ selectedCandidate.ilila.context_validation.sentinel2_vegetation?.green_fraction != null ? (selectedCandidate.ilila.context_validation.sentinel2_vegetation.green_fraction * 100).toFixed(1) + '%' : 'Unavailable' }} · NDVI &gt; 0.3 in median composite, not canopy cover</dd></div>
+                  </template>
+                </dl>
+                <p class="earth-muted">Research candidate from images and environmental data; field-test screening does not replace a site survey.</p>
               </section>
               <section v-else-if="earthInspectorTab === 'compare'" class="earth-detail">
-                <CandidateComparison :candidates="candidates" :active-region="selectedCandidate.region" :target-name="targetInfo.name" :target-terrain="terrainMeasurement?.comparison" :target-materials="(currentQuery()?.info as any)?.environment?.lithology" />
+                <CandidateComparison :candidates="candidates" :active-region="selectedCandidate.region" :target-name="targetInfo.name" :target-terrain="terrainMeasurement?.comparison" :target-materials="(currentQuery()?.info as any)?.environment?.lithology" :target-body="currentPlanet === 'mars' ? 'mars' : 'moon'" :target-id="terrainMeasurement ? selectedQuery : undefined" />
               </section>
               <section v-else-if="earthInspectorTab === 'lighting'" class="earth-detail">
                 <LunarLightingPanel :plan="lightingPlan" :busy="lightingBusy" :error="lightingError" :query-id="selectedQuery" :target-name="targetInfo.name" :candidate="selectedCandidate" :lunar-time="lunarReferenceTime" :start-date="earthSearchStart" :controls="false" />
@@ -1094,6 +1201,8 @@ onBeforeUnmount(() => {
               </section>
               <section v-else-if="earthInspectorTab === 'terrain'" class="earth-detail">
                 <h2>Terrain measurements</h2>
+                <ReliefPair :body="currentPlanet === 'mars' ? 'mars' : 'moon'" :target-id="selectedQuery" :target-name="targetInfo.name" :earth-id="selectedCandidate.region" :earth-name="candidateName(selectedCandidate)" :rows="terrainRows" :target="(planetaryTerrainStats as any)" :earth="(earthTerrainStats as any)" :regional="!planetaryTerrainStats && !!regionalTerrain" />
+                <details class="terrain-details"><summary>Measurement table and sources</summary>
                 <div class="terrain-scale-tabs" role="group" aria-label="Terrain measurement scale">
                   <button :class="{ active: terrainScale === 'common' }" @click="terrainScale = 'common'">Compare · 30 m grid</button>
                   <button :class="{ active: terrainScale === 'native' }" @click="terrainScale = 'native'">Source resolution</button>
@@ -1105,22 +1214,23 @@ onBeforeUnmount(() => {
                   <tbody><tr v-for="row in terrainRows" :key="row.key"><th>{{ row.label }}<small>{{ row.detail }}</small></th><td>{{ terrainValue(planetaryTerrainStats, row.key, row.unit) }}</td><td>{{ terrainValue(earthTerrainStats, row.key, row.unit) }}</td><td v-if="terrainScale === 'common'">{{ terrainDifference(row.key, row.unit) }}</td></tr></tbody>
                 </table></div>
                 <div class="terrain-source-grid">
-                  <article v-for="(data, index) in [planetaryTerrainStats, earthTerrainStats]" :key="index"><strong>{{ index === 0 ? (currentPlanet === 'moon' ? 'Moon' : 'Mars') : 'Earth' }} · {{ data ? 'DEM-derived' : 'Unavailable at this scale' }}</strong><template v-if="data"><p>{{ data.sampled_width_m.toFixed(0) }} m sampled window · {{ data.posting_m.toFixed(1) }} m grid<br>{{ (data.valid_fraction * 100).toFixed(1) }}% valid elevation samples</p><a :href="data.source_url" target="_blank" rel="noopener">{{ data.source.includes('COPERNICUS') ? 'Copernicus GLO-30' : data.source.includes('REMA') ? 'REMA' : data.source }} ↗</a></template><p v-else>A DEM with sufficient resolution and coverage is needed. Values are not inferred from optical appearance.</p></article>
+                  <article v-for="(data, index) in [planetaryTerrainStats, earthTerrainStats]" :key="index"><strong>{{ index === 0 ? (currentPlanet === 'moon' ? 'Moon' : 'Mars') : 'Earth' }} · {{ data ? 'DEM-derived' : 'Unavailable at this scale' }}</strong><template v-if="data"><p>{{ data.sampled_width_m.toFixed(0) }} m sampled window · {{ data.posting_m.toFixed(1) }} m grid<br>{{ (data.valid_fraction * 100).toFixed(1) }}% valid elevation samples</p><a :href="data.source_url" target="_blank" rel="noopener">{{ data.source.includes('COPERNICUS') ? 'Copernicus GLO-30' : data.source.includes('REMA') ? 'REMA' : data.source }}</a></template><p v-else>A DEM with sufficient resolution and coverage is needed. Values are not inferred from optical appearance.</p></article>
                 </div>
                 <section v-if="!planetaryTerrainStats && regionalTerrain" class="regional-terrain-context">
                   <h3>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · regional terrain estimate</h3>
                   <p>The local ROI lacks a suitable high-resolution DEM. The values below describe a <strong>10 km region</strong> around the site, not the 250 m ROI. They are excluded from the difference column and ranking.</p>
                   <dl><div v-for="row in terrainRows" :key="row.key"><dt>{{ row.label }}</dt><dd>{{ terrainValue(regionalTerrain, row.key, row.unit) }}</dd></div></dl>
-                  <p>{{ regionalTerrain.posting_m }} m analysis grid · {{ (regionalTerrain.valid_fraction * 100).toFixed(1) }}% valid samples. <a :href="regionalTerrain.source_url" target="_blank" rel="noopener">{{ regionalTerrain.source }} ↗</a></p>
+                  <p>{{ regionalTerrain.posting_m }} m analysis grid · {{ (regionalTerrain.valid_fraction * 100).toFixed(1) }}% valid samples. <a :href="regionalTerrain.source_url" target="_blank" rel="noopener">{{ regionalTerrain.source }}</a></p>
                 </section>
                 <p class="earth-muted">DEM roughness describes resolved terrain relief, not individual rocks. Copernicus and REMA are surface models and can include vegetation or structures. These display measurements do not change the saved ranking score.</p>
+                </details>
               </section>
               <section v-else class="earth-detail">
                 <h2>Evidence & sources</h2>
                 <p v-if="terrainMeasurement">The Terrain tab shows DEM measurements. Refreshed global rankings use slope only when both ROIs have coordinate-matched DEMs on the common 30 m grid.</p>
                 <div v-if="selectedCandidate.score_components" class="earth-table-wrap"><table><thead><tr><th>Ranking factor</th><th>Weight</th><th>Score</th><th>Confidence</th></tr></thead><tbody><tr v-for="(part, key) in selectedCandidate.score_components" :key="key"><th>{{ componentNames[key] ?? key }}</th><td>{{ Math.round(part.weight * 100) }}%</td><td>{{ part.value != null ? part.value.toFixed(3) : 'No data' }}</td><td>{{ Math.round(part.confidence * 100) }}%</td></tr></tbody></table><p>Score = sum(weight * confidence * factor score) / sum(weight * confidence), over available factors. Relative scores depend on the candidate pool.</p></div>
                 <p v-if="selectedCandidate.final_score != null">Final score = 0.92 * composite + 0.08 * (1 - distance_km / 20015). Origin: {{ originCity.name }}.</p>
-                <dl><div><dt>Image similarity</dt><dd>{{ selectedCandidate.cosine.toFixed(3) }} cosine · model output</dd></div><div><dt>{{ rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence index' }}</dt><dd>{{ matchedAnalog.matchScore }} · uncalibrated heuristic, not a probability</dd></div><div><dt>Model assessment</dt><dd>{{ selectedCandidate.vote ? selectedCandidate.vote + (selectedCandidate.agreement != null ? ` (${Math.round(selectedCandidate.agreement * 100)}% agreement)` : '') : 'Not available' }}</dd></div><div><dt>Planetary source</dt><dd>{{ currentQuery()?.info.product || 'Product not provided' }}</dd></div><div><dt>Earth imagery source</dt><dd>Not provided in this result</dd></div><div><dt>Run</dt><dd>{{ runId }}</dd></div></dl>
+                <dl><div><dt>Image similarity</dt><dd>{{ selectedCandidate.cosine != null ? selectedCandidate.cosine.toFixed(3) + ' cosine · model output' : 'Not applicable (no image retrieval)' }}</dd></div><div><dt>{{ rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence index' }}</dt><dd>{{ matchedAnalog.matchScore }} · uncalibrated heuristic, not a probability</dd></div><div><dt>Model assessment</dt><dd>{{ selectedCandidate.vote ? selectedCandidate.vote + (selectedCandidate.agreement != null ? ` (${Math.round(selectedCandidate.agreement * 100)}% agreement)` : '') : 'Not available' }}</dd></div><div><dt>Planetary source</dt><dd>{{ currentQuery()?.info.product || 'Product not provided' }}</dd></div><div><dt>Earth imagery source</dt><dd>Not provided in this result</dd></div><div><dt>Run</dt><dd>{{ runId }}</dd></div></dl>
                 <p v-if="selectedCandidate.reasoning?.reason">{{ selectedCandidate.reasoning.reason }}</p><p class="earth-muted">Results are model-generated proposals, not verified analogs.</p>
               </section>
             </div>
@@ -1209,6 +1319,16 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 32px;
 }
+
+.run-select { display:flex; flex-direction:column; gap:2px; width:min(30vw,400px); color:#334155; font-size:12.5px; }
+.run-select select { width:100%; padding:4px; border:1px solid #cbd5e1; border-radius:5px; background:white; color:#111827; font-size:13px; text-overflow:ellipsis; }
+.display-mode-btn { border:1px solid #cbd5e1; border-radius:6px; padding:6px 9px; margin-right:12px; background:#f8fafc; font-size:13px; cursor:pointer; }
+.image-view { position:absolute; inset:76px 16px 80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:#64748b; text-align:center; }
+.image-view > img, .image-view-candidate { width:min(100%,420px); aspect-ratio:1; object-fit:contain; border-radius:8px; background-color:#f1f5f9; }
+.image-view-candidate { background-position:center; background-repeat:no-repeat; }
+.image-planet-preview { width:min(100%,340px); aspect-ratio:1; flex-shrink:0; }
+.earth-image-view { right:330px; }
+@media(max-width:900px) { .earth-image-view { right:16px; } .display-mode-btn { font-size:12.5px; margin-right:5px; padding:5px; } }
 
 .menu-item-btn {
   background: transparent;
@@ -1401,7 +1521,7 @@ onBeforeUnmount(() => {
 }
 
 .popover-meta {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.8);
   margin-top: 2px;
 }
@@ -1460,7 +1580,7 @@ onBeforeUnmount(() => {
 .analog-score-pill {
   background: #22c55e;
   color: #000000;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 9999px;
@@ -1471,7 +1591,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .metric-row {
@@ -1555,7 +1675,7 @@ onBeforeUnmount(() => {
 }
 
 .status-pill-standby {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: #64748b;
   background: #f1f5f9;
@@ -1566,7 +1686,7 @@ onBeforeUnmount(() => {
 }
 
 .status-pill-matched {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #000000;
   background: #dcfce7;
@@ -1652,7 +1772,7 @@ onBeforeUnmount(() => {
 }
 
 .coords-badge {
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -1673,7 +1793,7 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: 9999px;
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: #64748b;
   cursor: pointer;
@@ -1727,14 +1847,14 @@ onBeforeUnmount(() => {
 }
 
 .transect-sub {
-  font-size: 11px;
+  font-size: 12.5px;
   color: #64748b;
 }
 
 .transect-metrics {
   display: flex;
   gap: 12px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .metric-item {
@@ -1779,6 +1899,10 @@ onBeforeUnmount(() => {
 .real-card span { font-size:1.1rem; font-weight:700; }
 .real-card small { color:#64748b; }
 .real-card { max-height: 92%; overflow-y: auto; }
+.real-card.wide { width: min(94%, 680px); max-width: 94%; text-align: left; margin-top: 56px; max-height: calc(100% - 64px) }
+.real-card.wide > strong { text-align: center }
+.brand-link { color: inherit; text-decoration: none }
+.brand-link:hover { opacity: .75 }
 .real-card a { font-size: 13px; color: #3f6552; }
 .terrain-preview { display: block; width: min(100%, 280px); height: auto; aspect-ratio: 1; margin: 4px auto; object-fit: contain; }
 .slope-scale { display: flex; justify-content: space-between; }
@@ -1788,15 +1912,15 @@ onBeforeUnmount(() => {
 .regions-panel { position:absolute; left:24px; bottom:72px; z-index:20; display:grid; gap:8px; max-width:min(320px, 60%); }
 .regions-toggle { justify-self:start; border:1.5px solid #000; background:#fff; border-radius:999px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer; }
 .regions-toggle.on { background:#000; color:#fff; }
-.regions-legend { display:grid; gap:4px; font-size:12px; background:rgba(255,255,255,.92); border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; }
+.regions-legend { display:grid; gap:4px; font-size:13px; background:rgba(255,255,255,.92); border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; }
 .regions-legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
-.region-card { display:grid; gap:4px; font-size:12px; background:#fff; border:1.5px solid #000; border-radius:10px; padding:10px 12px; }
+.region-card { display:grid; gap:4px; font-size:13px; background:#fff; border:1.5px solid #000; border-radius:10px; padding:10px 12px; }
 .region-card small { color:#64748b; }
 
 /* ---- responsive ---- */
 .top-left { min-width:0; }
 .menu-radios { display:grid; gap:4px; padding:4px 0; }
-.api-line { display:block; text-align:center; font-size:11px; color:#64748b; max-width:40vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.api-line { display:block; text-align:center; font-size:12.5px; color:#64748b; max-width:40vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .right-half .regions-panel { top:64px; bottom:auto; }
 @media (max-width: 900px) {
   .terratwinn-app { height:auto; min-height:100vh; overflow:visible; }
@@ -1827,7 +1951,7 @@ onBeforeUnmount(() => {
 .vmuted { color:#64748b; margin:4px 0; }
 .ladder { list-style:none; padding:0; margin:6px 0; display:grid; gap:6px; }
 .ladder li { padding:6px 8px; border:1px solid #e2e8f0; border-radius:8px; }
-.ladder li em { float:right; font-style:normal; font-size:12px; color:#64748b; }
+.ladder li em { float:right; font-style:normal; font-size:13px; color:#64748b; }
 .ladder li.reached { border-color:#10b981; } .ladder li.partial { border-color:#f59e0b; }
 
 /* header menus, guide strip, honest score pills */
@@ -1839,12 +1963,13 @@ onBeforeUnmount(() => {
 .menu-link:disabled { opacity: .4; cursor: default; }
 .top-right { position: relative; }
 .help-strip { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 8px 16px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-.help-strip b { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background: #000; color: #fff; font-size: 11px; margin-right: 4px; }
+.help-strip b { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background: #000; color: #fff; font-size: 12.5px; margin-right: 4px; }
 .help-strip small { color: #64748b; }
+:where(.terratwinn-app) small { font-size: 12.5px; }
 .help-strip button { margin-left: auto; background: none; border: none; font-size: 16px; cursor: pointer; }
 .status-pill-matched.rejected { background: #f1f5f9; border-color: #cbd5e1; }
 .analog-score-pill.rejected { background: #cbd5e1; }
-.rejected-note { margin-left: 6px; font-size: 11.5px; color: #64748b; }
+.rejected-note { margin-left: 6px; font-size: 12.5px; color: #64748b; }
 @media (max-width: 900px) {
   .menu-panel { min-width: 220px; }
   .top-bar { height: auto; min-height: 0; flex-wrap: wrap; padding: 6px 12px; row-gap: 4px; }
@@ -1862,9 +1987,9 @@ onBeforeUnmount(() => {
 .cand-card { display: flex; gap: 8px; text-align: left; background: rgba(255,255,255,.96); border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 6px; cursor: pointer; font: inherit; color: #000; }
 .cand-card.sel { border-color: #000; }
 .cand-thumb { flex: none; width: 64px; height: 64px; border-radius: 6px; background-size: 600% 100%; background-repeat: no-repeat; }
-.cand-main { display: grid; gap: 2px; font-size: 12px; min-width: 0; }
+.cand-main { display: grid; gap: 2px; font-size: 13px; min-width: 0; }
 .cand-main small { color: #475569; } .cand-break { font-style: italic; }
-.chip { display: inline-block; width: fit-content; padding: 0 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+.chip { display: inline-block; width: fit-content; padding: 0 8px; border-radius: 9999px; font-size: 12.5px; font-weight: 700; }
 .chip.ok { background: #bbf7d0; } .chip.mid { background: #fde68a; } .chip.bad { background: #e2e8f0; }
 @media (max-width: 900px) { .cand-list { position: static; width: auto; max-height: none; padding: 8px 12px; } }
 </style>
@@ -1908,7 +2033,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .roi-preview { position: relative; display: block; width: 100%; height: 130px; padding: 0; overflow: hidden; border: 0; border-radius: 8px; background: #292929; color: white; cursor: pointer; text-align: left; }
 .roi-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.roi-preview > span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent, rgba(0,0,0,.85)); font-size: 12px; font-weight: 600; }
+.roi-preview > span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent, rgba(0,0,0,.85)); font-size: 13px; font-weight: 600; }
 .roi-preview:focus-visible { outline: 2px solid #78baff; outline-offset: 3px; }
 </style>
 
@@ -1937,13 +2062,13 @@ onBeforeUnmount(() => {
 .crop-frame { position: relative; height: 100%; max-width: 100%; aspect-ratio: 1; }
 .crop-frame img { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; }
 .crop-selection { position: absolute; box-sizing: border-box; border: 2px solid #ffeb3b; box-shadow: 0 0 8px #fff, 0 0 2px 1px #000; cursor: move; touch-action: none; }
-.crop-size { position: absolute; left: 4px; bottom: 4px; padding: 2px 4px; border-radius: 3px; background: #000b; color: white; font-size: 11px; white-space: nowrap; pointer-events: none; }
+.crop-size { position: absolute; left: 4px; bottom: 4px; padding: 2px 4px; border-radius: 3px; background: #000b; color: white; font-size: 12.5px; white-space: nowrap; pointer-events: none; }
 .crop-handle { position: absolute; width: 14px; height: 14px; border: 2px solid #222; border-radius: 50%; background: #ffeb3b; box-shadow: 0 0 6px white; touch-action: none; }
 .crop-handle.nw { top: -8px; left: -8px; cursor: nwse-resize; }
 .crop-handle.ne { top: -8px; right: -8px; cursor: nesw-resize; }
 .crop-handle.sw { bottom: -8px; left: -8px; cursor: nesw-resize; }
 .crop-handle.se { bottom: -8px; right: -8px; cursor: nwse-resize; }
-.crop-note { color: #64748b; font-size: 11px; }
+.crop-note { color: #64748b; font-size: 12.5px; }
 </style>
 
 <style scoped>
@@ -1996,9 +2121,9 @@ onBeforeUnmount(() => {
 .results-toggle { position: absolute; left: -25px; top: 50%; transform: translateY(-50%); width: 25px; height: 48px; padding: 0; border: 1px solid #ddd; border-radius: 8px 0 0 8px; background: #111; color: white; font-size: 25px; cursor: pointer; pointer-events: auto; box-shadow: 0 0 8px #fff9; }
 .results-drawer .cand-card { padding: 7px; gap: 8px; box-shadow: 0 1px 4px #0002; align-items: center; }
 .results-drawer .cand-thumb { width: 44px; height: 44px; }
-.results-drawer .cand-main { font-size: 11px; gap: 3px; }
+.results-drawer .cand-main { font-size: 12.5px; gap: 3px; }
 .results-drawer .cand-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.results-drawer .chip { font-size: 10px; }
+.results-drawer .chip { font-size: 12.5px; }
 @media (prefers-reduced-motion: reduce) { .results-drawer { transition: none; } }
 </style>
 
@@ -2012,22 +2137,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .earth-preview-button { display: block; border: 0; position: relative; overflow: hidden; cursor: pointer; color: white; text-align: left; }
-.earth-preview-button span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent,#000d); font-size: 12px; font-weight: 600; }
+.earth-preview-button span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent,#000d); font-size: 13px; font-weight: 600; }
 .earth-inspector { position: absolute; inset: 0; z-index: 45; background: #f7f7f5; color: #17191b; display: flex; flex-direction: column; overflow: hidden; }
 .earth-inspector-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #e1e4e8; background: white; }
 .earth-inspector-header > div { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.earth-inspector-status { padding: 3px 8px; border-radius: 30px; background: #fce9a5; font-size: 11px; }
+.earth-inspector-status { padding: 3px 8px; border-radius: 30px; background: #fce9a5; font-size: 12.5px; }
 .earth-inspector-status.bad { background: #e2e8f0; } .earth-inspector-status.ok { background: #bbf7d0; }
 .earth-back { display: flex; align-items: center; gap: 7px; border: 0; border-radius: 99px; padding: 4px 12px 4px 4px; background: #111; color: white; cursor: pointer; }
 .earth-back img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
 .earth-inspector-content { overflow-y: auto; padding: 18px; }
-.earth-context, .earth-muted { color: #617080; font-size: 12px; line-height: 1.5; }
+.earth-context, .earth-muted { color: #617080; font-size: 13px; line-height: 1.5; }
 .earth-comparison { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .earth-comparison figure { margin: 0; min-width: 0; background: white; border: 1px solid #e1e4e8; border-radius: 10px; overflow: hidden; }
 .earth-comparison figure > img, .earth-comparison-candidate { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background-color: #222; }
 .earth-comparison-candidate { background-size: 600% 100%; background-repeat: no-repeat; }
-.earth-comparison figcaption { padding: 9px; display: grid; gap: 4px; font-size: 12px; overflow-wrap: anywhere; }
-.earth-comparison figcaption span { color: #617080; font-size: 11px; }
+.earth-comparison.ilila-profiles { grid-template-columns: minmax(0,1fr); }
+.earth-comparison.ilila-profiles .earth-comparison-candidate { aspect-ratio: 11/4; background-color: white; }
+.earth-comparison figcaption { padding: 9px; display: grid; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.earth-comparison figcaption span { color: #617080; font-size: 12.5px; }
 .earth-tabs { display: flex; gap: 5px; overflow-x: auto; margin-top: 18px; border-bottom: 1px solid #dce1e5; }
 .earth-tabs button { flex: none; padding: 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #647080; cursor: pointer; }
 .earth-tabs button.active { border-color: #111; color: #111; font-weight: 700; }
@@ -2043,9 +2170,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .transect-header { align-items: flex-start; gap: 20px; flex-wrap: wrap; }
 .transect-title { flex: 1 1 240px; min-width: 0; }
-.screen-caption { padding: 8px 10px; margin: 0; border-radius: 8px; background: #fff; color: #475569; font-size: 12px; line-height: 1.5; }
+.screen-caption { padding: 8px 10px; margin: 0; border-radius: 8px; background: #fff; color: #475569; font-size: 13px; line-height: 1.5; }
 .no-accepted-results { position: absolute; z-index: 5; top: 90px; right: 20px; max-width: 300px; padding: 16px; background: white; border: 1px solid #cbd5e1; border-radius: 12px; }
-.evidence-description { margin: 6px 0 0; color: #64748b; font-size: 12px; line-height: 1.5; white-space: normal; }
+.evidence-description { margin: 6px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; white-space: normal; }
 .transect-metrics { flex-wrap: wrap; gap: 12px; }
 </style>
 
@@ -2053,15 +2180,21 @@ onBeforeUnmount(() => {
 .terrain-scale-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 .terrain-scale-tabs button { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font: inherit; cursor: pointer; }
 .terrain-scale-tabs button.active { background: #111; color: white; border-color: #111; }
-.terrain-comparison-table th small { display: block; margin-top: 5px; max-width: 220px; font-size: 11px; line-height: 1.4; font-weight: normal; color: #64748b; }
+.terrain-comparison-table th small { display: block; margin-top: 5px; max-width: 220px; font-size: 12.5px; line-height: 1.4; font-weight: normal; color: #64748b; }
 .terrain-comparison-table td { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .terrain-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 16px; }
 .terrain-source-grid article { padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; }
-.terrain-source-grid p { margin: 7px 0; font-size: 12px; line-height: 1.5; }
+.terrain-source-grid p { margin: 7px 0; font-size: 13px; line-height: 1.5; }
 .regional-terrain-context { margin-top: 16px; padding: 14px; border: 1px solid #e2c271; border-radius: 10px; background: #fffaf0; }
 .regional-terrain-context h3 { margin-top: 0; font-size: 15px; }
 .compare-candidates-cta { margin: 2px 0 12px; padding: 10px 14px; border-radius: 8px; border: 1px solid #111827; background: #111827; color: white; font: inherit; cursor: pointer; }
 .earth-comparison.compact figure > img, .earth-comparison.compact .earth-comparison-candidate { height: 140px; aspect-ratio: auto; }
+.earth-comparison:not(.compact):not(.ilila-profiles) figure > img, .earth-comparison:not(.compact):not(.ilila-profiles) .earth-comparison-candidate { height: 240px; aspect-ratio: auto; }
+.overview-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 2px; }
+.overview-chips > span { padding: 5px 10px; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: 13px; }
+.overview-chips .compare-candidates-cta { margin: 0 0 0 auto; }
+.terrain-details { margin-top: 12px; font-size: 13.5px; }
+.terrain-details > summary { cursor: pointer; font-weight: 600; color: #334155; margin-bottom: 8px; }
 .earth-tabs { position: sticky; top: -18px; z-index: 3; background: #f8fafc; }
 .results-drawer { width: min(310px, calc(100% - 52px)); }
 .results-drawer .cand-card { display: block; padding: 15px; border-radius: 14px; }
@@ -2069,15 +2202,15 @@ onBeforeUnmount(() => {
 .candidate-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 3px; }
 .candidate-ranking-score { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
 .candidate-ranking-score strong { font-size: 30px; line-height: 1.1; font-weight: 750; letter-spacing: -1px; }
-.candidate-ranking-score > span { font-size: 12px; color: #64748b; }
-.results-drawer .candidate-card-top .chip { padding: 4px 9px; font-size: 11px; line-height: 1.4; flex-shrink: 0; }
+.candidate-ranking-score > span { font-size: 13px; color: #64748b; }
+.results-drawer .candidate-card-top .chip { padding: 4px 9px; font-size: 12.5px; line-height: 1.4; flex-shrink: 0; }
 .results-drawer .cand-main .candidate-place-name { font-size: 14px; line-height: 1.4; white-space: normal; overflow: visible; }
-.results-drawer .candidate-place-location { font-size: 12px; line-height: 1.5; }
-.results-drawer .candidate-origin-distance { font-size: 11px; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px; }
-.lighting-planner-summary { display:grid;gap:5px;margin:8px 0;padding:10px 12px;border:1px solid #dbeafe;background:#eff6ff;border-radius:8px;font-size:11px;line-height:1.5; }
+.results-drawer .candidate-place-location { font-size: 13px; line-height: 1.5; }
+.results-drawer .candidate-origin-distance { font-size: 12.5px; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px; }
+.lighting-planner-summary { display:grid;gap:5px;margin:8px 0;padding:10px 12px;border:1px solid #dbeafe;background:#eff6ff;border-radius:8px;font-size:12.5px;line-height:1.5; }
 .lighting-planner-summary button { justify-self:start;background:white;border:1px solid #94a3b8;border-radius:5px;padding:5px 8px;font:inherit;cursor:pointer; }
 .candidate-light-window { display:grid;gap:3px;padding:8px;border-radius:6px;background:#eff6ff;color:#1e40af!important;line-height:1.5; }
-.candidate-light-window span { font-size:10px; }
+.candidate-light-window span { font-size:12.5px; }
 .lighting-settings-overlay { position:fixed;inset:10vh max(16px,calc((100vw - 720px)/2));z-index:200;overflow-y:auto;padding:18px;background:white;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 0 0 100vmax #0008; }
 .close-lighting-settings { display:block;margin:0 0 12px auto;padding:7px 12px;background:#111827;color:white;border:0;border-radius:6px;cursor:pointer; }
 .cave-recommendations-overlay { position:fixed;inset:5vh max(12px,calc((100vw - 860px)/2));z-index:200;overflow-y:auto;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 0 0 100vmax #0008; }

@@ -3,7 +3,7 @@
     <div class="wrap reveal">
       <h2>Take a closer look.</h2>
       <p>Choose a planetary site and explore the Earth candidates behind it.</p>
-      <a class="btn" href="#/setup">Open explorer <span class="arrow" aria-hidden="true">→</span></a>
+      <a class="btn" href="#/setup">Open explorer</a>
     </div>
   </section>
   <footer class="foot">
