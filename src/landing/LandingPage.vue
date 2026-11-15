@@ -136,7 +136,7 @@ const sunStyle = computed(() => ({ opacity: 1 - smooth(progress.value / .55), tr
                 <p class="evidence-limit">Straight-line surface distance helps compare locations; it is not a travel route or access assessment.</p>
               </article>
             </div>
-            <div class="evidence-takeaway"><span class="evidence-takeaway-icon" aria-hidden="true">↗</span><div><strong>A higher score means a stronger research lead.</strong><p>Each result separates data, model estimates and missing evidence. Expand “Metrics explained” to inspect its calculations and references. Rankings do not certify a site for landing or field testing.</p></div></div>
+            <div class="evidence-takeaway"><div><strong>A higher score means a stronger research lead.</strong><p>Each result separates data, model estimates and missing evidence. Expand “Metrics explained” to inspect its calculations and references. Rankings do not certify a site for landing or field testing.</p></div></div>
             <div class="explorer-invitation">
               <a href="#/setup" class="explorer-link" :tabindex="tableProgress > .8 ? 0 : -1"><span>Check it out<br class="invitation-break" /> for yourself </span></a>
             </div>
@@ -249,6 +249,6 @@ h2 { font-size: clamp(34px, 4.7vw, 72px); line-height: 1.06; letter-spacing: -.0
 .evidence-card>p.evidence-limit{margin-top:auto;padding-top:12px;border-top:1px solid #ffffff1c;font-size:14px;color:#aebccd;line-height:1.6}
 .evidence-terrain{--accent:#80dfc1}.evidence-rock{--accent:#e5c390}.evidence-temperature{--accent:#ffa995}.evidence-wind{--accent:#c0b3ff}.evidence-distance{--accent:#9ad7ef}
 .evidence-takeaway{display:flex;gap:18px;text-align:left;padding:24px;margin-top:22px;border:1px solid #83b9ff44;border-radius:16px;background:#101c2b}
-.evidence-takeaway-icon{color:#9ccaff;font-size:30px;line-height:1}.evidence-takeaway strong{font-size:20px;line-height:1.4}.evidence-takeaway p{margin:10px 0 0;color:#c3cfe0;font-size:16px;line-height:1.65}
+.evidence-takeaway strong{font-size:20px;line-height:1.4}.evidence-takeaway p{margin:10px 0 0;color:#c3cfe0;font-size:16px;line-height:1.65}
 @media(max-width:650px){.measurement-scene{padding:60px 18px 24px}.evidence-grid{grid-template-columns:1fr;gap:14px}.evidence-card{padding:22px}.evidence-eyebrow{font-size:11px}.sample-label br{display:none}.evidence-takeaway{padding:20px;gap:12px}}
 </style>

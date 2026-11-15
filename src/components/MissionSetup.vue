@@ -44,14 +44,14 @@ function blur(event: FocusEvent) {
   <section class="setup-page" aria-labelledby="welcome-title">
     <a href="#/" class="home-link">Back to introduction</a>
     <div class="setup-window">
-      <div class="window-bar"><img class="window-mark" :src="logoUrl" alt="" aria-hidden="true" /><span>TerraTwinn · Mission setup</span><span class="step-label">Step 1 of 2</span></div>
+      <div class="window-bar"><img class="window-mark" :src="logoUrl" alt="" aria-hidden="true" /><span>TerraTwinn · Mission setup</span><span class="step-label">Mission setup</span></div>
       <form class="setup-form" @submit.prevent="submit">
-        <header><p class="eyebrow">BEFORE YOU BEGIN</p><h1 id="welcome-title">Welcome to TerraTwinn.</h1><p class="intro">Set up your mission to find comparable terrain for testing on Earth.</p></header>
+        <header><p class="eyebrow">BEFORE YOU BEGIN</p><h1 id="welcome-title">Plan your exploration.</h1><p class="intro">Choose a world, a research goal and your starting city. We’ll find Earth locations for you to compare.</p></header>
 
         <fieldset><legend><span class="number">1</span> Which world are you planning for? <span class="required">*</span></legend>
           <div class="body-options">
-            <label class="body-option" :class="{ selected: body === 'moon' }"><input v-model="body" type="radio" name="body" value="moon" required /><span>Moon<small>Earth’s natural satellite</small></span><span class="check" aria-hidden="true">{{ body === 'moon' ? '✓' : '' }}</span></label>
-            <label class="body-option" :class="{ selected: body === 'mars' }"><input v-model="body" type="radio" name="body" value="mars" required /><span>Mars<small>The red planet</small></span><span class="check" aria-hidden="true">{{ body === 'mars' ? '✓' : '' }}</span></label>
+            <label class="body-option" :class="{ selected: body === 'moon' }"><input v-model="body" type="radio" name="body" value="moon" required /><span>Moon<small>Earth’s natural satellite</small></span></label>
+            <label class="body-option" :class="{ selected: body === 'mars' }"><input v-model="body" type="radio" name="body" value="mars" required /><span>Mars<small>The red planet</small></span></label>
           </div>
         </fieldset>
 
@@ -60,14 +60,14 @@ function blur(event: FocusEvent) {
         </fieldset>
 
         <div class="city-field" @focusout="blur">
-          <label for="mission-city" class="field-title"><span class="number">3</span> Where are you located? <span class="required">*</span></label>
-          <div class="search-wrap"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="mission-city" ref="searchBox" v-model="search" type="search" placeholder="Search for a city, country or agency…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="mission-city-options" :aria-expanded="open" :aria-activedescendant="active >= 0 ? `city-option-${active}` : undefined" required @input="searched" @focus="open = true" @keydown="keydown" /><button v-if="search" type="button" class="clear-search" aria-label="Clear city" @click="search = ''; searched(); searchBox?.focus()">×</button></div>
-          <div v-if="open" class="city-dropdown"><div class="dropdown-caption">{{ results.length }} / {{ missionCities.length }} cities</div><ul id="mission-city-options" role="listbox" aria-label="Your city"><li v-for="(item, index) in results" :id="`city-option-${index}`" :key="item.id" role="option" :aria-selected="city?.id === item.id" :class="{ active: index === active }" @pointerdown.prevent="select(item)"><span><strong>{{ item.name }}</strong><small>{{ item.country }} · {{ item.association }}</small></span><span class="country-code">{{ item.country_code }}</span></li><li v-if="!results.length" class="no-results">No matching city. Try Hanoi, Houston or Paris.</li></ul><a href="https://www.geonames.org/" target="_blank" rel="noreferrer" class="catalog-credit">Coordinates: GeoNames · CC BY 4.0</a></div>
-          <p v-if="city" class="city-confirm" role="status">✓ {{ city.name }} · {{ city.lat.toFixed(4) }}°, {{ city.lon.toFixed(4) }}°</p>
+          <label for="mission-city" class="field-title"><span class="number">3</span> Your starting city <span class="required">*</span></label>
+          <div class="city-search"><div class="search-wrap"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="mission-city" ref="searchBox" v-model="search" type="search" placeholder="Search for a city, country or agency…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="mission-city-options" :aria-expanded="open" :aria-activedescendant="active >= 0 ? `city-option-${active}` : undefined" required @input="searched" @focus="open = true" @keydown="keydown" /><button v-if="search" type="button" class="clear-search" aria-label="Clear city" @click="search = ''; searched(); searchBox?.focus()">×</button></div>
+          <div v-if="open" class="city-dropdown"><div class="dropdown-caption">{{ results.length }} / {{ missionCities.length }} cities</div><ul id="mission-city-options" role="listbox" aria-label="Your city"><li v-for="(item, index) in results" :id="`city-option-${index}`" :key="item.id" role="option" :aria-selected="city?.id === item.id" :class="{ active: index === active }" @pointerdown.prevent="select(item)"><span><strong>{{ item.name }}</strong><small>{{ item.country }} · {{ item.association }}</small></span><span class="country-code">{{ item.country_code }}</span></li><li v-if="!results.length" class="no-results">No matching city. Try Hanoi, Houston or Paris.</li></ul><a href="https://www.geonames.org/" target="_blank" rel="noreferrer" class="catalog-credit">Coordinates: GeoNames · CC BY 4.0</a></div></div>
+          <div v-if="city" class="city-confirm" role="status"><div class="city-selection"><span class="city-caption">STARTING LOCATION</span><strong>{{ city.name }}</strong><span>{{ city.country }}</span></div><div class="city-coordinates"><span>Latitude <b>{{ Math.abs(city.lat).toFixed(4) }}° {{ city.lat >= 0 ? 'N' : 'S' }}</b></span><span>Longitude <b>{{ Math.abs(city.lon).toFixed(4) }}° {{ city.lon >= 0 ? 'E' : 'W' }}</b></span></div><p>Used to compare distances to Earth candidates.</p></div>
           <p v-else class="field-hint">Select a city to calculate great-circle distances to Earth candidates.</p>
         </div>
 
-        <footer class="form-footer"><span>Complete all three fields to continue.</span><button class="next-button" type="submit" :disabled="!valid">Next</button></footer>
+        <footer class="form-footer"><span>{{ valid ? 'Your mission is ready to explore.' : 'Choose a world, mission and city to continue.' }}</span><button class="next-button" type="submit" :disabled="!valid">Continue</button></footer>
       </form>
     </div>
     <p class="page-footnote">TerraTwinn · Terrain analogs for research and testing</p>
@@ -96,7 +96,7 @@ legend, .field-title { display: flex; gap: 7px; align-items: center; font-size: 
 .body-option:focus-within, .mission-option:focus-within { outline: 2px solid #5a735b; outline-offset: 3px; }
 .body-option small { display: block; font-size: 13px; color: #8a9284; margin-top: 3px; }
 .selected { border-color: #7f9277 !important; background: #f5f8f1; }
-.check { margin-left: auto; color: #567247; font-size: 15px; }
+
 .mission-options { display: grid; gap: 7px; }
 .mission-option { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #e3e6de; border-radius: 6px; cursor: pointer; }
 .mission-option input { accent-color: #526c45; width: 13px; height: 13px; flex-shrink: 0; }
@@ -129,4 +129,20 @@ li small { display: block; font-size: 13px; line-height: 1.5; color: #88917e; ma
 .next-button:disabled { border-color: #e5e9df; background: #eef1e9; color: #a6b09c; cursor: not-allowed; }
 .page-footnote { margin-top: 20px; color: #a4ac9b; font-size: 12px; letter-spacing: .02em; }
 @media (max-width: 560px) { .setup-page { padding: 65px 16px 30px; } .setup-form { padding: 24px 20px 20px; gap: 20px; } .home-link { left: 18px; } .form-footer > span { max-width: 160px; } }
+</style>
+
+<style scoped>
+.setup-page{box-sizing:border-box;background:radial-gradient(ellipse at 50% 0%,#152236 0%,#080d16 55%,#030509 100%);color:#172235;padding:76px 24px 36px}
+.setup-window{width:min(100%,700px);border:1px solid #ffffff30;border-radius:22px;box-shadow:0 24px 90px #0005;overflow:visible}
+.window-bar{height:52px;border-radius:22px 22px 0 0;padding:0 28px;background:#f4f6f9;border-bottom:1px solid #e2e7ef;color:#475569}.window-bar .step-label{display:none}
+.setup-form{padding:34px 36px 28px;gap:28px}.setup-form header{padding-bottom:4px}.eyebrow{color:#486ba1;letter-spacing:.12em;margin:0 0 12px}h1{margin:0;font-size:clamp(30px,4vw,38px);font-weight:650;color:#122039}.intro{max-width:540px;font-size:16px;color:#5b6a7e;line-height:1.65;margin:12px 0 0}
+fieldset{margin:0}legend,.field-title{font-size:16px;gap:10px;margin-bottom:14px;line-height:1.4}.number{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:50%;background:#eef2f8;color:#52647e;font-size:12px;font-weight:600;flex-shrink:0}.required{color:#7a899d;font-size:13px}
+.body-options{gap:12px}.body-option{padding:18px;min-height:80px;box-sizing:border-box;border-radius:12px;border-color:#dce3ec;background:#fff;font-size:18px;font-weight:600;transition:border-color .15s,background .15s}.body-option small{font-size:14px;color:#66758a;font-weight:400}.selected{border-color:#4978b3!important;background:#eff5ff;box-shadow:inset 0 0 0 1px #4978b3}.body-option:hover,.mission-option:hover{border-color:#8ca9cd}.body-option:focus-within,.mission-option:focus-within{outline:2px solid #4978b3;outline-offset:3px}
+.mission-options{gap:10px}.mission-option{padding:15px 16px;border-radius:12px;border-color:#dce3ec;gap:14px}.mission-option input{width:16px;height:16px;accent-color:#365f93}.mission-option strong{font-size:16px;font-weight:600}.mission-option small{color:#66758a;font-size:14px}
+.city-search{position:relative}.search-wrap{height:52px;box-sizing:border-box;border-radius:12px;border-color:#ccd6e4;padding:0 14px;gap:12px}.search-wrap input{font-size:16px;color:#172235}.search-wrap input::placeholder{color:#738197}.search-wrap svg{width:18px;height:18px;stroke:#6d7e94}.search-wrap:focus-within{outline:2px solid #4978b3;outline-offset:2px}.clear-search{padding:6px;color:#64748b}.clear-search:focus-visible{outline:2px solid #4978b3;border-radius:4px}
+.city-dropdown{top:calc(100% + 8px);border-color:#d2ddea;border-radius:12px;box-shadow:0 14px 36px #142c4c26}.dropdown-caption{background:#f4f7fb;color:#5b6a7e}.city-dropdown ul{margin:0;padding:0;max-height:230px}.city-dropdown li{padding:12px 16px}.city-dropdown li:hover,.city-dropdown li.active{background:#eff5ff}.city-dropdown li small{color:#64748b}.country-code{color:#60758d}.catalog-credit{color:#526b8d;padding:10px 16px}
+.city-confirm{display:grid;grid-template-columns:1fr auto;gap:14px;margin-top:14px;padding:18px;background:#f4f7fb;border:1px solid #e0e7f0;border-radius:12px;color:#52647e;font-size:14px}.city-selection{display:flex;flex-direction:column;gap:3px}.city-caption{font-size:10px;letter-spacing:.1em;color:#60758e;font-weight:650;margin-bottom:4px}.city-selection strong{font-size:17px;line-height:1.4;color:#172b47;font-weight:600}.city-coordinates{display:flex;flex-direction:column;gap:6px;justify-content:center;font-size:12px}.city-coordinates>span{display:flex;justify-content:space-between;gap:16px}.city-coordinates b{font-weight:500;color:#334c6a;font-variant-numeric:tabular-nums}.city-confirm p{grid-column:1/-1;border-top:1px solid #dfe6f0;padding-top:10px;margin:0;font-size:12px;color:#607088}.field-hint{font-size:14px;color:#64748b;margin-top:10px}
+.form-footer{border-top-color:#e2e8f0;padding-top:22px}.form-footer>span{color:#64748b;font-size:13px;line-height:1.5}.next-button{background:#203d65;border:1px solid #203d65;border-radius:10px;padding:12px 24px;font-size:15px;font-weight:600}.next-button:hover:not(:disabled){background:#315789}.next-button:disabled{color:#8592a5;background:#edf1f6;border-color:#e2e8f0}.next-button:focus-visible{outline:2px solid #4978b3;outline-offset:3px}.page-footnote{color:#98a6bb;font-size:13px}.home-link{font-size:14px;color:#b6c5db}
+@media(max-width:560px){.setup-page{padding:65px 14px 26px}.window-bar{padding:0 20px}.setup-form{padding:26px 20px;gap:26px}.body-option{padding:14px}.body-option small{font-size:12px}.city-confirm{grid-template-columns:1fr}.city-coordinates{gap:8px}.city-coordinates>span{justify-content:flex-start}.city-coordinates b{margin-left:auto}.form-footer>span{max-width:160px}.search-wrap input{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.body-option{transition:none}}
 </style>
