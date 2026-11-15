@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue'
+import metricsReportUrl from '../../docs/TERRATWINN_METRICS_REPORT_EN.pdf?url'
 interface Part {value:number|null;weight:number;confidence:number;method?:string;earth_mean_speed_ms?:number|null;half_score_speed_ms?:number}
 interface Environment {temperature_midrange_K?:number|null;temperature_range_K?:number|null;temperature_provenance?:string;wind_mean_ms?:number|null;wind_provenance?:string;lithology?:string[];lithology_provenance?:string}
 interface Candidate {factor_score?:number;ranking_mode?:string;rank:number;region:string;region_name?:string;cosine?:number|null;earth_environment?:Environment;composite?:number;final_score?:number;distance_km?:number|null;score_missing_policy?:string;validation_assessment?:string;score_components?:Record<string,Part>;ranking_terrain?:{query_slope_p90_deg:number|null;earth_slope_p90_deg:number|null;query_source_url?:string|null;earth_source_url?:string|null;missing_reason:string|null}}
@@ -32,6 +33,14 @@ const drivers=computed(()=>{
 const distancePoints=computed(()=>props.candidate.final_score!=null&&props.candidate.distance_km!=null?8*Math.max(0,1-props.candidate.distance_km/(Math.PI*6371.0088)):null)
 const fmt=(n:number|null|undefined,unit:string,digits=2)=>n!=null&&Number.isFinite(n)?`${n.toFixed(digits)} ${unit}`:'Unavailable'
 const classes=(a?:string[])=>a?.length?a.map(s=>s.replace(/_/g,' ')).join(', '):'Unavailable'
+interface MetricReference { formula: string; basis: string; sources: { title: string; url: string }[] }
+const references: Record<string, MetricReference> = {
+ visual: {formula:'cos = (q · e) / (‖q‖ ‖e‖)\ns = (cos − cos_min) / (cos_max − cos_min)', basis:'DINOv3 ViT-L/16 SAT-493M, grayscale 224 px input. Cosine and min–max normalization are standard methods; the choice of ranking weights is a project assumption. Equal cosines score 1.', sources:[{title:'Siméoni et al. (2025) · DINOv3',url:'https://arxiv.org/abs/2508.10104'},{title:'Earth imagery · Sentinel-2 SR Harmonized (10 m)',url:'https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED'},{title:'Moon imagery · LROC PDS',url:'https://pds.lroc.im-ldi.com/'},{title:'Mars imagery · CTX mosaic service',url:'https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX1/MapServer'}]},
+ slope: {formula:'tol = max(3°, 0.30 × q_p90)\ns = max(0, 1 − |e_p90 − q_p90| / (2 × tol))',basis:'p90 is the 90th percentile of DEM-derived slope. Compare a centered 240 × 240 m window on a common 30 m grid. The tolerance and similarity rule are project choices. Coarse regional terrain is excluded.',sources:[{title:'Earth DEM · Copernicus GLO-30',url:'https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_DEM_GLO30_2024_1'},{title:'Lunar polar DEM · NASA LOLA',url:'https://pgda.gsfc.nasa.gov/products/90'},{title:'Mars local DEM · HiRISE stereo DTMs',url:'https://hirise.lpl.arizona.edu/dtm/'}]},
+ lithology: {formula:'s = ½ [mean_a∈Q max_b∈E m(a,b) + mean_b∈E max_a∈Q m(a,b)]',basis:'Symmetric best-class overlap. Same class: 1; unlisted pair: 0. Examples: clay–clastic sediment 0.5, evaporite–carbonate 0.4, regolith–basaltic 0.3. Compatibility coefficients are team judgement, not coefficients taken from the cited geology sources.',sources:[{title:'Earth geologic map units · Macrostrat',url:'https://macrostrat.org/'},{title:'Lunar Sourcebook · Heiken, Vaniman & French (1991)',url:'https://www.lpi.usra.edu/publications/books/lunar_sourcebook/'}]},
+ temperature: {formula:'Tmid = (Tmax + Tmin) / 2; ΔT = Tmax − Tmin\nd = |Earth − Planet|\ncloseness(d) = 1 − (d − d_min) / (d_max − d_min)\ns = mean(closeness(Tmid), closeness(ΔT))',basis:'Equal differences score 1; average available terms. Relative scaling is a project choice. Earth: MODIS 1 km, 8-day day/night composites, 2018–2023. Moon: polar Diviner or latitude-based estimates. Mars: MCD v6.2 modelled surface temperature. These products have different spatial and temporal sampling.',sources:[{title:'Earth · MODIS MOD11A2.061',url:'https://doi.org/10.5067/MODIS/MOD11A2.061'},{title:'Moon · Williams et al. (2017), Diviner',url:'https://doi.org/10.1016/j.icarus.2016.08.012'},{title:'Mars · Mars Climate Database',url:'https://www-mars.lmd.jussieu.fr/'}]},
+ wind: {formula:'Moon: s = 2^(−v_Earth / 0.5 m/s)\nMars: d = |v_Earth − v_Mars|\ns = 1 − (d − d_min) / (d_max − d_min)',basis:'Earth: ERA5 regional 10 m wind, Jan 2015–Jul 2020, about 28 km cells. Mars: MCD modelled 10 m wind. Moon: zero atmospheric wind by physical convention. Both similarity rules are project choices. The current absolute Moon decay supersedes the relative lunar rule in the PDF; calm Earth air does not reproduce vacuum.',sources:[{title:'Hersbach et al. (2020) · ERA5 global reanalysis',url:'https://doi.org/10.1002/qj.3803'},{title:'Earth wind dataset · ERA5 DAILY',url:'https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_DAILY'},{title:'Mars wind · Mars Climate Database',url:'https://www-mars.lmd.jussieu.fr/'}]}
+}
 const factorDetails=computed(()=>{
  const q=props.targetEnvironment, e=props.candidate.earth_environment, t=props.candidate.ranking_terrain
  const moon=props.body==='moon', crop=props.crop
@@ -53,6 +62,7 @@ const factorDetails=computed(()=>{
   <div v-for="factor in factorDetails.filter(r=>r.key===candidate.ranking_mode)" :key="factor.key" class="re-unit-item">
    <p><b>Units:</b> {{factor.unit}}</p><p><b>Inputs:</b> {{factor.inputs}}</p><p><b>Similarity:</b> {{factor.method}}</p>
   </div>
+  <details v-if="references[candidate.ranking_mode]" class="re-more"><summary>Formula, data sources &amp; references</summary><pre>{{references[candidate.ranking_mode]?.formula}}</pre><p>{{references[candidate.ranking_mode]?.basis}}</p><ul><li v-for="source in references[candidate.ranking_mode]?.sources" :key="source.url"><a :href="source.url" target="_blank" rel="noopener noreferrer">{{source.title}}</a></li></ul><a :href="metricsReportUrl" target="_blank" rel="noopener noreferrer">Read the original metrics report (PDF)</a></details>
   <p v-if="candidate.ranking_mode==='visual'">Raw cosine breaks ties between rounded image-factor scores; remaining ties use site ID.</p>
   <p>Overall remains available from Rank by → Overall (original formula).</p>
  </article>
@@ -81,16 +91,24 @@ const factorDetails=computed(()=>{
    </ul>
    <p class="re-hint">Bar length = how well this site matches on that factor (0–1). Points = its share of the total score.</p>
    <p v-if="lunarWind" class="re-hint">The Moon has no atmospheric wind (0 m/s). Earth regional mean: {{lunarWind.earth_mean_speed_ms??'not available'}} m/s. Wind match uses an absolute decay, halving every {{lunarWind.half_score_speed_ms}} m/s; it is not normalized to the best candidate. This is a project screening rule; calm air does not reproduce lunar vacuum.</p>
-   <section v-if="factorDetails.length" class="re-units" aria-label="Factor units and similarity calculations">
-    <h4>Factor units and similarity</h4>
+   <details :key="candidate.region" v-if="factorDetails.length" class="re-units">
+    <summary>Metrics explained <span>Measurements, formulas &amp; references</span></summary>
     <p>Factor similarities are unitless, from 0 to 1. Points below are weighted contributions to the total, not physical units or probabilities.</p>
-    <div v-for="factor in factorDetails" :key="factor.key" class="re-unit-item">
-     <strong>{{factor.short}}</strong><span class="re-unit-score">{{factor.available && factor.value!=null ? `${factor.value.toFixed(3)} / 1 · ${factor.points.toFixed(1)} pts` : 'Not scored: no data'}}</span>
+    <details v-for="factor in factorDetails" :key="factor.key" class="re-unit-item">
+     <summary>{{factor.short}}<span class="re-unit-score">{{factor.available && factor.value!=null ? `${factor.value.toFixed(3)} / 1 · ${factor.points.toFixed(1)} pts` : 'Not scored: no data'}}</span></summary>
      <p><b>Units:</b> {{factor.unit}}</p><p><b>Inputs:</b> {{factor.inputs}}</p><p><b>Similarity:</b> {{factor.method}}</p>
-    </div>
-    <div v-if="distancePoints!=null" class="re-unit-item"><strong>Distance</strong><span class="re-unit-score">{{distancePoints.toFixed(1)}} pts</span><p><b>Unit:</b> kilometres (km), great-circle distance. <b>Input:</b> {{fmt(candidate.distance_km,'km',1)}}.</p><p><b>Contribution:</b> 8 × max(0, 1 − distance / 20,015 km) points. The remaining 92 points come from the weighted factor score.</p></div>
+     <pre>{{references[factor.key]?.formula}}</pre>
+     <p>{{references[factor.key]?.basis}}</p>
+     <p v-if="factor.key==='slope' && candidate.ranking_terrain"><a v-if="candidate.ranking_terrain.query_source_url" :href="candidate.ranking_terrain.query_source_url" target="_blank" rel="noopener noreferrer">This planetary DEM product</a> <a v-if="candidate.ranking_terrain.earth_source_url" :href="candidate.ranking_terrain.earth_source_url" target="_blank" rel="noopener noreferrer">This Earth DEM product</a></p>
+     <ul class="re-citations"><li v-for="source in references[factor.key]?.sources" :key="source.url"><a :href="source.url" target="_blank" rel="noopener noreferrer">{{source.title}}</a></li></ul>
+    </details>
+    <details v-if="distancePoints!=null" class="re-unit-item"><summary>Distance · formula &amp; inputs</summary><strong>Distance</strong><span class="re-unit-score">{{distancePoints.toFixed(1)}} pts</span><p><b>Unit:</b> kilometres (km), great-circle distance. <b>Input:</b> {{fmt(candidate.distance_km,'km',1)}}.</p><p><b>Contribution:</b> 8 × max(0, 1 − distance / 20,015 km) points. The remaining 92 points come from the weighted factor score. Haversine uses mean Earth radius 6371.0088 km; the linear decay and 8% weight are project choices. City coordinates come from GeoNames; site coordinates come from the curated catalog.</p><a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames city data</a></details>
     <p>Weighted factor score = Σ(weight × confidence × similarity) / Σ(weight × confidence), using the result's missing-data policy. Similarity scores are not measured quantities, and displayed components may be rounded.</p>
-   </section>
+    <details class="re-unit-item"><summary>Composite, weights &amp; data confidence</summary><pre>composite = Σ(W × c × s) / Σ(W × c)
+with city: final = 0.92 × composite + 0.08 × distance_score
+without city: final = composite</pre><p>Base weights with city: image 40%, lithology 20%, temperature 15%, slope 15%, wind 10%. Without city: 35%, 21.6667%, 16.25%, 16.25%, 10.8333%. The result's actual saved weights and effective shares are shown under “How this score works”.</p><p>Environmental confidence = query provenance factor × Earth provenance factor. Measured/physical: 1; map/literature: 0.9; model: 0.85; regional literature: 0.7; estimated/unknown: 0.5. Visual and available comparable slope use 1. Weights and confidence coefficients are team assumptions, not fitted to verified analog labels.</p><p v-if="candidate.score_missing_policy==='zero_estimated'">This result retains missing factors with estimated confidence in the denominator and assigns zero points.</p><p v-else>Missing factors are excluded from numerator and denominator. Remaining factors are renormalized.</p></details>
+    <p><a :href="metricsReportUrl" target="_blank" rel="noopener noreferrer">Read the original metrics report (PDF)</a> · Current crop retrieval and lunar wind updates are explained above. Dataset references describe the source products; they do not independently validate this candidate.</p>
+   </details>
    <div v-if="competitor && drivers.length" class="re-drivers">
     <span>Against #{{competitor.rank}}:</span>
     <b v-for="d in drivers" :key="d.label" :class="d.delta>=0?'up':'down'">{{driverName(d.label)}} {{d.delta>=0?'+':'−'}}{{Math.abs(d.delta).toFixed(1)}}</b>
@@ -126,9 +144,20 @@ const factorDetails=computed(()=>{
 .re-meter{height:8px;border-radius:4px;background:#f1f5f9;overflow:hidden}.re-meter b{display:block;height:100%;border-radius:4px}
 .re-factors em{font-style:normal;text-align:right;color:#334155;font-variant-numeric:tabular-nums}
 .re-hint{margin:8px 0 0;font-size:12.5px;color:#64748b}
-.re-units{margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:13px;color:#334155}.re-units h4{margin:0;font-size:15px;color:#0f172a}.re-units>p{margin:6px 0}.re-unit-item{padding:10px 0;border-bottom:1px solid #e2e8f0}.re-unit-item>strong{color:#0f172a}.re-unit-score{float:right;font-variant-numeric:tabular-nums}.re-unit-item p{margin:4px 0;overflow-wrap:anywhere}
+.re-units{margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:13px;color:#334155}.re-units h4{margin:0;font-size:15px;color:#0f172a}.re-units>p{margin:6px 0}.re-unit-item{padding:10px 0;border-bottom:1px solid #e2e8f0}.re-unit-item>strong{color:#0f172a}.re-unit-score{margin-left:auto;font-variant-numeric:tabular-nums}.re-unit-item p{margin:4px 0;overflow-wrap:anywhere}
 .re-drivers{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:13px;color:#475569}
 .re-drivers b{padding:3px 8px;border-radius:999px;font-weight:600}.re-drivers .up{background:#dcfce7;color:#166534}.re-drivers .down{background:#fee2e2;color:#991b1b}
 .re-more{margin-top:12px;font-size:13px}.re-more summary{cursor:pointer;color:#334155;font-weight:600}.re-more p{font-size:13px}
 .re-more table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}.re-more th,.re-more td{text-align:left;border-bottom:1px solid #e2e8f0;padding:7px 5px}
+</style>
+
+<style scoped>
+.re-units>summary{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;cursor:pointer;font-size:15px;font-weight:650;color:#0f172a;padding:8px 0;list-style:revert}
+.re-units>summary span{font-size:12px;font-weight:400;color:#64748b}
+.re-unit-item>summary{display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:600;color:#0f172a;padding:5px 0}
+.re-unit-item>summary::before{content:'+';color:#64748b;font-size:16px;flex-shrink:0}.re-unit-item[open]>summary::before{content:'−'}
+.re-unit-score{font-size:12px;font-weight:400;text-align:right;color:#475569}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:12px;line-height:1.7;color:#0f172a}
+.re-citations{padding-left:20px;line-height:1.8}a{color:#1d4ed8;text-underline-offset:3px}summary:focus-visible{outline:2px solid #2563eb;outline-offset:4px;border-radius:4px}
+@media(max-width:480px){.re-unit-item>summary{flex-wrap:wrap}.re-unit-score{margin-left:24px;width:100%;text-align:left}}
 </style>

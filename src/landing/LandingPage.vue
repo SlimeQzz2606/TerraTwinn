@@ -89,18 +89,54 @@ const sunStyle = computed(() => ({ opacity: 1 - smooth(progress.value / .55), tr
         <section ref="measurementScene" class="measurement-scene" :style="{ opacity: tableProgress, pointerEvents: tableProgress > .8 ? 'auto' : 'none' }" :aria-hidden="tableProgress < .1">
           <div class="measurement-line" :style="{ transform: `scaleY(${Math.min(1, tableProgress * 2)})` }"></div>
           <div class="measurement-content" :style="{ opacity: smooth((tableProgress - .2) / .8), transform: `translateY(${(1 - tableProgress) * 35 - tableOffset}px)` }">
-            <h2>See what’s measured.<br />See what’s missing.</h2>
-            <p class="sample-label">Every result shows its sources and data limits.</p>
-            <div class="measurement-panel">
-              <div class="sample-head"><span>What supports a match?</span><span>Source-aware comparisons</span></div>
-              <div class="sample-table-scroll"><table class="sample-table"><thead><tr><th>Evidence</th><th>What it tells you</th><th>What to check</th></tr></thead><tbody>
-                <tr><th>Orbital images</th><td>Similar visible landforms and textures</td><td>Different sensors and pixel sizes</td></tr>
-                <tr><th>Terrain &amp; slope</th><td>Elevation and slope where a DEM is available</td><td>Coverage and measurement scale</td></tr>
-                <tr><th>Thermal context</th><td>Thermal inertia or temperature context</td><td>Measured data versus climate models</td></tr>
-                <tr><th>Materials &amp; climate</th><td>Map, literature and regional context</td><td>Not a field measurement of each patch</td></tr>
-              </tbody></table></div>
-              <p class="sample-note">Open a site to see available measurements. A ranking score is a research lead, not confirmation of landing suitability.</p>
+            <p class="evidence-eyebrow">BEYOND A SIMILAR-LOOKING IMAGE</p>
+            <h2>Why does this place<br />match another world?</h2>
+            <p class="sample-label">Compare the landscape, surface and climate.<br />Open any result to see the values, formulas and sources behind its rank.</p>
+            <div class="evidence-grid">
+              <article class="evidence-card evidence-image">
+                <span class="evidence-category">01 / IMAGE RESEMBLANCE</span>
+                <h3>Does the ground look alike?</h3>
+                <p>Compare visible landforms and textures in orbital images using DINOv3.</p>
+                <div class="evidence-measure"><strong>Cosine similarity</strong><span>Image feature comparison · unitless</span></div>
+                <p class="evidence-limit">A visual match starts the search. It does not establish the same geology.</p>
+              </article>
+              <article class="evidence-card evidence-terrain">
+                <span class="evidence-category">02 / TERRAIN &amp; SLOPE</span>
+                <h3>How steep is the terrain?</h3>
+                <p>Compare slopes derived from elevation models on the same measurement grid.</p>
+                <div class="evidence-measure"><strong>Slope p90 <span>°</span></strong><span>90% of sampled slopes fall below this angle</span></div>
+                <p class="evidence-limit">Common scale: 30 m cells over 240 m. Without a suitable local DEM, slope stays unavailable.</p>
+              </article>
+              <article class="evidence-card evidence-rock">
+                <span class="evidence-category">03 / ROCK &amp; MINERAL CLASSES</span>
+                <h3>What is the surface made of?</h3>
+                <p>Compare reported material classes, such as basalt, regolith and sediment.</p>
+                <div class="evidence-measure"><strong>Class compatibility</strong><span>Maps &amp; published site literature</span></div>
+                <p class="evidence-limit">Regional classifications provide context; they are not soil samples from every patch.</p>
+              </article>
+              <article class="evidence-card evidence-temperature">
+                <span class="evidence-category">04 / TEMPERATURE</span>
+                <h3>How do thermal conditions compare?</h3>
+                <p>Find the closest Earth candidates by temperature midpoint and day–night range.</p>
+                <div class="evidence-measure"><strong>Midpoint &amp; range <span>K</span></strong><span>MODIS · Diviner / estimates · Mars climate model</span></div>
+                <p class="evidence-limit">Closest in the candidate pool does not mean Earth reproduces planetary temperatures.</p>
+              </article>
+              <article class="evidence-card evidence-wind">
+                <span class="evidence-category">05 / WIND</span>
+                <h3>How calm or windy is it?</h3>
+                <p>Compare regional wind with Mars, or assess calm conditions against the Moon’s zero-wind reference.</p>
+                <div class="evidence-measure"><strong>Mean wind speed <span>m/s</span></strong><span>Earth ERA5 reanalysis · Mars climate model</span></div>
+                <p class="evidence-limit">Regional climate is not local weather. Calm air on Earth does not reproduce lunar vacuum.</p>
+              </article>
+              <article class="evidence-card evidence-distance">
+                <span class="evidence-category">06 / DISTANCE FROM YOU</span>
+                <h3>Which candidate is closer?</h3>
+                <p>Your selected city adds a small proximity preference to the overall ranking.</p>
+                <div class="evidence-measure"><strong>Great-circle distance <span>km</span></strong><span>8% of the final score when a city is supplied</span></div>
+                <p class="evidence-limit">Straight-line surface distance helps compare locations; it is not a travel route or access assessment.</p>
+              </article>
             </div>
+            <div class="evidence-takeaway"><span class="evidence-takeaway-icon" aria-hidden="true">↗</span><div><strong>A higher score means a stronger research lead.</strong><p>Each result separates data, model estimates and missing evidence. Expand “Metrics explained” to inspect its calculations and references. Rankings do not certify a site for landing or field testing.</p></div></div>
             <div class="explorer-invitation">
               <a href="#/setup" class="explorer-link" :tabindex="tableProgress > .8 ? 0 : -1"><span>Check it out<br class="invitation-break" /> for yourself </span></a>
             </div>
@@ -166,8 +202,8 @@ h2 { font-size: clamp(34px, 4.7vw, 72px); line-height: 1.06; letter-spacing: -.0
 .measurement-scene { position: absolute; inset: 0; z-index: 6; overflow: hidden; padding: 70px 24px 32px; background: #020305; }
 .measurement-line { position: absolute; top: 0; left: 50%; width: 1px; height: 55px; background: linear-gradient(transparent,#d5deeb); transform-origin: top; }
 .measurement-content { max-width: 960px; margin: auto; text-align: center; }
-.measurement-content h2 { font-size: clamp(30px,4vw,60px); }
-.sample-label { margin: 14px 0 25px; color: #afbac9; font-size: 12px; }
+.measurement-content h2 { margin:12px 0 0; font-size:clamp(34px,4.5vw,64px); line-height:1.08; }
+.sample-label { max-width:700px; margin:22px auto 36px; color:#c5cfdc; font-size:clamp(17px,1.8vw,21px); line-height:1.6; }
 .measurement-panel { text-align: left; border: 1px solid #ffffff30; border-radius: 18px; background: #101318; overflow: hidden; }
 .sample-head { display: flex; justify-content: space-between; gap: 12px; padding: 17px 22px; border-bottom: 1px solid #ffffff20; font-size: 12px; color: #c0cad8; }
 .sample-table-scroll { overflow-x: auto; }
@@ -199,4 +235,20 @@ h2 { font-size: clamp(34px, 4.7vw, 72px); line-height: 1.06; letter-spacing: -.0
 @keyframes invitation-heartbeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.035); } 22% { transform: scale(1); } 32% { transform: scale(1.02); } 45% { transform: scale(1); } }
 @media (max-width: 600px) { .invitation-break { display: block; } }
 @media (prefers-reduced-motion: reduce) { .explorer-link, .explorer-link > span { animation: none; transition: none; } .explorer-link:hover, .explorer-link:focus-visible { transform: none; } }
+</style>
+
+<style scoped>
+.evidence-eyebrow{margin:0;color:#9ccaff;font-size:13px;letter-spacing:.14em;font-weight:650}
+.evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;text-align:left}
+.evidence-card{--accent:#9ccaff;padding:26px;border:1px solid #ffffff25;border-top:3px solid var(--accent);border-radius:16px;background:linear-gradient(145deg,#151c27,#0c1017);display:flex;flex-direction:column}
+.evidence-category{color:var(--accent);font-size:12px;letter-spacing:.07em;font-weight:650}
+.evidence-card h3{margin:14px 0 10px;color:#fff;font-size:clamp(21px,2.2vw,26px);line-height:1.25;letter-spacing:-.02em}
+.evidence-card>p{margin:0;color:#d0d7e2;font-size:16px;line-height:1.65}
+.evidence-measure{display:flex;flex-direction:column;gap:7px;margin-top:22px;padding:16px 0;border-top:1px solid #ffffff1c}
+.evidence-measure strong{color:var(--accent);font-size:21px;line-height:1.4}.evidence-measure strong span{font-size:16px;font-weight:500}.evidence-measure>span{font-size:14px;color:#b7c4d5;line-height:1.5}
+.evidence-card>p.evidence-limit{margin-top:auto;padding-top:12px;border-top:1px solid #ffffff1c;font-size:14px;color:#aebccd;line-height:1.6}
+.evidence-terrain{--accent:#80dfc1}.evidence-rock{--accent:#e5c390}.evidence-temperature{--accent:#ffa995}.evidence-wind{--accent:#c0b3ff}.evidence-distance{--accent:#9ad7ef}
+.evidence-takeaway{display:flex;gap:18px;text-align:left;padding:24px;margin-top:22px;border:1px solid #83b9ff44;border-radius:16px;background:#101c2b}
+.evidence-takeaway-icon{color:#9ccaff;font-size:30px;line-height:1}.evidence-takeaway strong{font-size:20px;line-height:1.4}.evidence-takeaway p{margin:10px 0 0;color:#c3cfe0;font-size:16px;line-height:1.65}
+@media(max-width:650px){.measurement-scene{padding:60px 18px 24px}.evidence-grid{grid-template-columns:1fr;gap:14px}.evidence-card{padding:22px}.evidence-eyebrow{font-size:11px}.sample-label br{display:none}.evidence-takeaway{padding:20px;gap:12px}}
 </style>
