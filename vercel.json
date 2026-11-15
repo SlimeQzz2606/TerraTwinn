@@ -3,7 +3,7 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/proxy.mjs": { "maxDuration": 30 } },
+  "functions": { "api/proxy.mjs": { "maxDuration": 60 } },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/proxy?path=$1" },
     { "handle": "filesystem" },

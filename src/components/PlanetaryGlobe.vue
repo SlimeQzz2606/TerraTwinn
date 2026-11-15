@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import type { GlobeInstance } from 'globe.gl'
-import type { Object3D } from 'three'
+import type { Object3D, PerspectiveCamera } from 'three'
 import CandidateComparison from './CandidateComparison.vue'
 import RankingExplanation from './RankingExplanation.vue'
 import RoiTerrainVisual from './RoiTerrainVisual.vue'
@@ -9,13 +9,12 @@ import RoiThermalVisual from './RoiThermalVisual.vue'
 import ReliefPair from './ReliefPair.vue'
 import LunarLightingPanel from './LunarLightingPanel.vue'
 import BaseCavePanel from './BaseCavePanel.vue'
-import LandingPlanetLite from '../landing/LandingPlanetLite.vue'
+import { createCelestialBackdrop } from '../skyView'
 import { lightingDate, type LightingPlan, type LightingSchedule } from '../lightingPlan'
-import { cityForSetup, type MissionSetup } from '../missionSetup'
+import { cityForSetup, missionCities, type MissionSetup } from '../missionSetup'
 
 const props = defineProps<{ setup: MissionSetup }>()
 const originCity = computed(() => cityForSetup(props.setup))
-
 const BASE = import.meta.env.BASE_URL
 
 export type PlanetKey = 'moon' | 'mars'
@@ -84,41 +83,17 @@ function dividerKey(event: KeyboardEvent) {
 
 const leftViewMode = ref<ViewMode>('globe')
 const activeRoiLayer = ref<RoiLayer>('optical')
-const display3D = ref(false)
-const loading3D = ref(false)
 let Globe!: typeof import('globe.gl').default
 let THREE!: typeof import('three')
-async function enable3D() {
-  if (display3D.value) {
-    display3D.value = false
-    leftGlobe?.pauseAnimation(); rightGlobe?.pauseAnimation()
-    return
-  }
-  loading3D.value = true
+async function initializeGlobes() {
   try {
-    if (!leftGlobe) {
-      const [globeModule, threeModule] = await Promise.all([import('globe.gl'), import('three')])
-      Globe = globeModule.default; THREE = threeModule
-      display3D.value = true
-      await nextTick()
-      initLeftGlobe(); initRightGlobe(); refreshPlanetMarkers()
-    } else {
-      display3D.value = true
-      await nextTick()
-      leftGlobe.resumeAnimation(); rightGlobe?.resumeAnimation()
-    }
-    leftViewMode.value = 'globe'
-    earthInspectorOpen.value = false
-    if (currentQuery()) {
-      leftGlobe?.customLayerData([{ lat: targetInfo.value.lat, lng: targetInfo.value.lng }])
-      leftGlobe?.pointOfView({ lat: targetInfo.value.lat, lng: targetInfo.value.lng, altitude: ZOOM_ALTITUDE }, 0)
-      showLeftInfo.value = true
-    }
-    if (selectedCandidate.value) pickCandidate(selectedCandidate.value)
+    const [globeModule, threeModule] = await Promise.all([import('globe.gl'), import('three')])
+    Globe = globeModule.default; THREE = threeModule
+    await nextTick()
+    initLeftGlobe(); initRightGlobe(); refreshPlanetMarkers()
   } catch {
-    display3D.value = false
-    apiStatus.value = '3D unavailable; image view remains available'
-  } finally { loading3D.value = false }
+    apiStatus.value = '3D could not load. Please reload the page and check that WebGL is enabled.'
+  }
 }
 
 // Target Data
@@ -151,7 +126,7 @@ function closeMenuOnOutsideClick(event: PointerEvent) {
 function downloadJson() {
   const q = currentQuery()
   if (!q) return
-  const blob = new Blob([JSON.stringify({ note: 'Unverified model opinions plus measurements, not geological ground truth.', run: runId.value, setup: { ...props.setup, origin: originCity.value }, query: q }, null, 1)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify({ note: 'Unverified model opinions plus measurements, not geological ground truth.', run: runId.value, setup: { ...props.setup, origin: originCity.value }, query: cropSearchResult.value ? { info: q.info, candidates: candidates.value, crop_search: cropSearchResult.value } : q }, null, 1)], { type: 'application/json' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = `terratwinn_${q.info.query_id}.json`; a.click()
   URL.revokeObjectURL(a.href); menu.value = ''
@@ -163,23 +138,24 @@ const rightGlobeContainer = ref<HTMLDivElement | null>(null)
 
 let leftGlobe: GlobeInstance | null = null
 let rightGlobe: GlobeInstance | null = null
+const skyControllers: Partial<Record<'left'|'right', ReturnType<typeof createCelestialBackdrop>>> = {}
 let leftResizeObserver: ResizeObserver | null = null
 let rightResizeObserver: ResizeObserver | null = null
 
 const PLANET_TEXTURES = {
   moon: {
     name: 'Moon',
-    globe: `${BASE}textures/moon-preview.jpg`,
+    globe: `${BASE}textures/moon.jpg`,
     bump: `${BASE}textures/moon-bump.jpg`
   },
   mars: {
     name: 'Mars',
-    globe: `${BASE}textures/mars-preview.jpg`,
+    globe: `${BASE}textures/mars.jpg`,
     bump: `${BASE}textures/mars-bump.jpg`
   },
   earth: {
     name: 'Earth',
-    globe: `${BASE}textures/earth-preview.jpg`,
+    globe: `${BASE}textures/earth.jpg`,
     bump: `${BASE}textures/earth-topology.png`
   }
 }
@@ -235,14 +211,82 @@ function refreshPlanetMarkers() {
     for (const q of queries.value) {
       if (!all.has(q.info.query_id)) all.set(q.info.query_id, { id: q.info.query_id, name: queryName(q), lat: q.info.lat, lng: q.info.lon_east })
     }
-    markerSamples[body] = [...all.values()].filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+    const pool = [...all.values()].filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j]!, pool[i]!]
+    }
+    markerSamples[body] = pool.slice(0, Math.ceil(pool.length / 2))
   }
   const sample = [...markerSamples[body]!]
   const selected = currentQuery()
   if (selected && !sample.some(s => s.id === selected.info.query_id)) {
     sample.push({ id: selected.info.query_id, name: queryName(selected), lat: selected.info.lat, lng: selected.info.lon_east })
   }
-  leftGlobe.labelsData(sample)
+  leftGlobe.htmlElementsData(sample)
+  scheduleMarkerLayout()
+}
+let markerFrame = 0
+function surfacePointVisible(globe: GlobeInstance | null, lat: number, lng: number) {
+  if (!globe || !Number.isFinite(lat) || !Number.isFinite(lng)) return false
+  const view = globe.pointOfView()
+  const rad = Math.PI / 180
+  const dot = Math.sin(lat * rad) * Math.sin(view.lat * rad)
+    + Math.cos(lat * rad) * Math.cos(view.lat * rad) * Math.cos((lng - view.lng) * rad)
+  // Perspective horizon: the surface normal must face the actual camera,
+  // not just be in the same geographic hemisphere as its center.
+  return dot > 1 / (1 + Math.max(0, view.altitude)) + 1e-7
+}
+function updateSurfaceVisibility(element: HTMLElement, globe: GlobeInstance | null) {
+  const visible = surfacePointVisible(globe, Number(element.dataset.lat), Number(element.dataset.lng))
+  element.dataset.front = String(visible)
+  element.style.display = visible ? '' : 'none'
+  element.setAttribute('aria-hidden', String(!visible))
+  return visible
+}
+function scheduleMarkerLayout() {
+  if (markerFrame) return
+  markerFrame = requestAnimationFrame(() => {
+    markerFrame = 0
+    const container = leftGlobeContainer.value
+    if (!container) return
+    const bounds = container.getBoundingClientRect()
+    const occupied: DOMRect[] = []
+    const markers = [...container.querySelectorAll<HTMLElement>('.planet-marker')]
+    markers.sort((a, b) => Number(b.dataset.id === selectedQuery.value) - Number(a.dataset.id === selectedQuery.value))
+    for (const marker of markers) {
+      const label = marker.querySelector<HTMLElement>('.planet-marker-name')!
+      label.style.visibility = 'hidden'
+      if (!updateSurfaceVisibility(marker, leftGlobe)) continue
+      const rect = label.getBoundingClientRect()
+      if (rect.left < bounds.left || rect.right > bounds.right || rect.top < bounds.top || rect.bottom > bounds.bottom) continue
+      if (occupied.some(r => rect.left < r.right + 6 && rect.right > r.left - 6 && rect.top < r.bottom + 4 && rect.bottom > r.top - 4)) continue
+      label.style.visibility = 'visible'
+      occupied.push(rect)
+    }
+  })
+}
+function createPlanetMarker(data: object) {
+  const site = data as PlanetMarker
+  const root = document.createElement('div')
+  root.className = 'planet-marker'
+  root.dataset.id = site.id
+  root.dataset.lat = String(site.lat)
+  root.dataset.lng = String(site.lng)
+  root.style.cssText = 'width:0;height:0;pointer-events:none;'
+  const dot = document.createElement('button')
+  dot.type = 'button'; dot.setAttribute('aria-label', site.name)
+  dot.style.cssText = 'position:absolute;left:-3px;top:-3px;width:6px;height:6px;padding:0;border:1px solid #fff;border-radius:50%;background:#e8b938;pointer-events:auto;cursor:pointer;'
+  const label = document.createElement('span')
+  label.className = 'planet-marker-name'; label.textContent = site.name
+  label.style.cssText = 'position:absolute;top:7px;left:0;transform:translateX(-50%);white-space:nowrap;font:400 11px/1.3 system-ui,sans-serif;color:#26313c;background:rgba(255,255,255,.82);border-radius:4px;padding:1px 4px;pointer-events:auto;cursor:pointer;'
+  const select = (event: Event) => {
+    event.stopPropagation()
+    const query = queries.value.find(q => q.info.query_id === site.id)
+    if (query) chooseSite(query)
+  }
+  dot.addEventListener('click', select); label.addEventListener('click', select)
+  root.append(dot, label)
+  return root
 }
 async function loadMarkerCatalog() {
   try {
@@ -257,10 +301,11 @@ async function loadMarkerCatalog() {
   } catch { /* The existing report locations remain available when the catalog cannot load. */ }
 }
 const filteredSites = computed(() => {
-  const text = siteSearch.value.toLowerCase().trim()
+  const normalize = (value: string) => value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+  const text = normalize(siteSearch.value)
   const current = queries.value.find(q => q.info.query_id === selectedQuery.value)
-  if (!text || (current && text === queryName(current).toLowerCase())) return queries.value
-  return queries.value.filter(q => `${queryName(q)} ${q.info.query_id.replace(/_/g, ' ')}`.toLowerCase().includes(text))
+  if (!text || (current && text === normalize(queryName(current)))) return queries.value
+  return queries.value.filter(q => normalize(queryName(q)).includes(text) || normalize(q.info.query_id).includes(text))
 })
 function closeSiteSearch(event: FocusEvent) { if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) searchOpen.value = false }
 function chooseSite(q: Query) {
@@ -304,6 +349,8 @@ async function searchLighting(value = { lunarTime: lunarReferenceTime.value, sta
   rightGlobe?.customLayerData([])
   earthSearchStart.value = value.startDate
   const params = new URLSearchParams({ query_id: q.info.query_id, start_date: value.startDate, user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon) })
+  params.set('country', activeRegion.value.country)
+  params.set('continent', activeRegion.value.continent)
   if (value.lunarTime) params.set('lunar_time', value.lunarTime.slice(0,16) + ':00Z')
   try {
     const response = await fetch('/api/analogs/lighting/plan?' + params)
@@ -324,12 +371,23 @@ const runId = ref('')
 const isIlilaRun = computed(() => runId.value.startsWith('moon_judge_ilila_'))
 const availableRuns = ref<{ id: string; label?: string }[]>([])
 const planetRuns = computed(() => availableRuns.value.filter(r => r.id.startsWith(currentPlanet.value + '_judge') && !r.id.endsWith('_source')))
+const defaultRunId = ref<Record<string, string>>({})
+const ILILA_RUN = 'moon_judge_ilila_expanded'
+// Presentation mode offers terrain analogs and the separate lunar iLILA testbed.
+const visibleRuns = computed(() => {
+  if (devMode) return planetRuns.value
+  const keep = new Set([defaultRunId.value[currentPlanet.value], currentPlanet.value === 'moon' ? ILILA_RUN : ''])
+  return planetRuns.value.filter(r => keep.has(r.id))
+})
+const runLabel = (r: { id: string; label?: string }) => devMode ? (r.label ?? r.id)
+  : r.id === ILILA_RUN ? 'iLILA testbed: seismic noise and 1 km arms' : 'Terrain analogs: all sites'
 async function selectRun(id: string) {
   const response = await fetch(reportUrl(id))
   if (!response.ok) { apiStatus.value = 'Could not load the selected run'; return }
   reports.value[currentPlanet.value] = { runId: id, queries: await response.json() }
   moonVariant.value = 'base'
   delete markerSamples[currentPlanet.value]
+  exitRoiMode()   // a new run starts from the globe, not inside the previous site's ROI view
   useReport(currentPlanet.value)
 }
 // ---- Validation drawer (/api/analogs/validation) ----
@@ -353,8 +411,44 @@ const candidateStyle = (c: Cand, index: number) => {
 }
 const candidateSlope = (c: Cand) => c.earth_slope_p90_deg ?? c.earth_terrain?.slope_p90
 const componentNames: Record<string, string> = { visual: 'Image', lithology: 'Rock / mineral', temperature: 'Temperature', slope: 'Slope p90', wind: 'Mean wind', geometry: 'iLILA geometry', seismic: 'Seismic noise (Earth NLNM/NHNM reference)', thermal: 'Thermal cycling', anchoring: 'Anchoring', anthropogenic: 'Human noise' }
+const regionCountry = ref('')
+const regionContinent = ref('')
+const regionBusy = ref(false)
+const regionError = ref('')
+const regionGroups = ref<{ countries: { country_code: string; country: string; continent: string; n_regions: number }[]; continents: Record<string, number> }>({ countries: [], continents: {} })
+const regionCountries = computed(() => regionGroups.value.countries.filter(c => !regionContinent.value || c.continent === regionContinent.value).sort((a,b) => a.country.localeCompare(b.country)))
+const activeRegion = ref({ country: '', continent: '' })
+const regionScope = () => ({ ...activeRegion.value })
+watch(regionContinent, () => {
+  if (!regionCountries.value.some(c => c.country_code === regionCountry.value)) regionCountry.value = ''
+})
+async function applyRegionFilter() {
+  if (regionBusy.value || cropSearchBusy.value || lightingBusy.value) return
+  regionBusy.value = true; regionError.value = ''
+  activeRegion.value = { country: regionCountry.value, continent: regionContinent.value }
+  const id = runId.value, queryId = selectedQuery.value
+  const submittedCrop = cropSearchResult.value?.box_percent
+  const hadResults = resultsRequested.value
+  candidates.value = []; earthMatched.value = false; earthInspectorOpen.value = false
+  rightGlobe?.customLayerData([])
+  try {
+    const response = await fetch(reportUrl(id))
+    if (!response.ok) throw new Error('Could not load results for this region. Try again.')
+    const data = await response.json()
+    if (id !== runId.value || queryId !== selectedQuery.value) return
+    queries.value = data
+    reports.value[currentPlanet.value] = { runId: id, queries: data }
+    if (hadResults) {
+      if (submittedCrop) await searchSelectedCrop({ x: submittedCrop[0]!, y: submittedCrop[1]!, width: submittedCrop[2]!, height: submittedCrop[3]! })
+      else if (isLunarLanding.value) await searchLighting()
+      else candidates.value = (currentQuery()?.candidates ?? []).filter(c => c.field_test?.decision === 'ACCEPTED' && c.lat != null && c.lon != null)
+    }
+  } catch (error) { regionError.value = error instanceof Error ? error.message : 'Regional search failed.' }
+  finally { regionBusy.value = false }
+}
 const reportUrl = (id: string) => `/api/analogs/${id}/report?` + new URLSearchParams({
   user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon), mission_type: props.setup.mission,
+  ...(id.endsWith('_global') ? regionScope() : {}),
 })
 const themis = computed(() => (currentQuery()?.info as any)?.thermal_inertia_themis ?? null)
 const measurements = computed(() => (currentQuery()?.info as any)?.measurements ?? null)
@@ -409,6 +503,7 @@ async function loadReport() {
       ? pick('mars_judge_colab_env_global', 'mars_judge_env_global', 'mars_judge_screen_gated_veg_div2_env', 'mars_judge_global', 'mars_judge_screen_gated_veg_div2')
       : pick('moon_judge_colab_env_global', 'moon_judge_env_global', 'moon_judge_screen_gated_veg_div2_env', 'moon_judge_global', 'moon_judge_screen_gated_veg_div2')
     if (!run) { apiStatus.value = 'No analog run found'; return }
+    defaultRunId.value = { ...defaultRunId.value, [body]: run.id }
     reports.value[body] = { runId: run.id, queries: await reportJson(reportUrl(run.id)) }
     useReport(body)
   } catch (e) {
@@ -417,12 +512,8 @@ async function loadReport() {
 }
 
 const reports = ref<Record<string, { runId: string; queries: any[] }>>({})
-// Presentation scope: the four curated Moon/Mars sites. Add ?dev=1 to the address to see every site and the run picker.
+// Developer mode exposes the run picker; site search always includes the full report.
 const devMode = new URLSearchParams(location.search).has('dev')
-const DEMO_SITES: Record<string, string[]> = {
-  moon: ['change7_shackleton_ridge', 'artemis_mons_mouton_plateau'],
-  mars: ['exomars_backup_mawrth', 'starship_phlegra_montes'],
-}
 
 const moonVariant = ref<'base' | 'supp'>('base')
 
@@ -431,9 +522,7 @@ function useReport(planet: PlanetKey) {
   if (!r) { runId.value = ''; queries.value = []; selectedQuery.value = ''; apiStatus.value = `No ${planet} analog run`; return }
   runId.value = r.runId
   // Terra Sirenum is hidden: its CTX query is only 50x50 px (5 m) and every candidate scored cosine 0.13-0.18 (noise). Results stay in the report files.
-  let shown = r.queries.filter((q: any) => !q.info.query_id.includes('terra_sirenum'))
-  const demo = shown.filter((q: any) => (DEMO_SITES[planet] ?? []).includes(q.info.query_id))
-  if (!devMode && demo.length) shown = demo
+  const shown = r.queries.filter((q: any) => !q.info.query_id.includes('terra_sirenum'))
   queries.value = shown
   selectedQuery.value = ''
   siteSearch.value = ''
@@ -443,8 +532,10 @@ function useReport(planet: PlanetKey) {
   rightGlobe?.customLayerData([])
   const usable = shown.filter(q => q.info.image_available !== false).length
   apiStatus.value = `${shown.length} ${planet === 'mars' ? 'Mars' : 'Moon'} sites · ${usable} with images · run ${r.runId}`
-  const initial = shown.find(q => q.info.image_available !== false) ?? shown[0]
-  if (initial) chooseSite(initial)
+  showLeftInfo.value = false
+  leftViewMode.value = 'globe'
+  leftGlobe?.customLayerData([])
+  leftGlobe?.pointOfView({ lat: 0, lng: 0, altitude: 2.2 }, 0)
 }
 
 function currentQuery() { return queries.value.find((q) => q.info.query_id === selectedQuery.value) }
@@ -453,6 +544,8 @@ const queryHasImage = computed(() => currentQuery()?.info.image_available !== fa
 const ZOOM_ALTITUDE = 0.35   // close enough to see the surface texture around the site
 
 function applyQuery(animate = false) {
+  cropSearchResult.value = null
+  cropSearchError.value = ''
   resultsRequested.value = false
   const q = currentQuery()
   if (!q) return
@@ -536,6 +629,48 @@ function create3DPin(colorHex = 0xef4444) {
   return pinGroup
 }
 
+function addSparseStars(globe: GlobeInstance) {
+  const coordinates: number[] = []
+  // A small, deterministic star field; no flicker when selecting a site.
+  let seed = 90217
+  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296 }
+  for (let i = 0; i < 100; i++) {
+    const z = random() * 2 - 1, angle = random() * Math.PI * 2
+    const ring = Math.sqrt(1 - z * z)
+    coordinates.push(1800 * ring * Math.cos(angle), 1800 * z, 1800 * ring * Math.sin(angle))
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(coordinates, 3))
+  const material = new THREE.PointsMaterial({ color: 0xd6e2f5, size: 1.3, sizeAttenuation: false, transparent: true, opacity: .45, depthWrite: false })
+  const stars = new THREE.Points(geometry, material)
+  stars.name = 'sparse-space-stars'
+  stars.raycast = () => {}
+  globe.scene().add(stars)
+
+  // A few brighter stars with soft halos, rather than a dense animated sky.
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const context = canvas.getContext('2d')!
+  const halo = context.createRadialGradient(32, 32, 0, 32, 32, 32)
+  halo.addColorStop(0, 'rgba(255,255,255,1)')
+  halo.addColorStop(.12, 'rgba(245,250,255,1)')
+  halo.addColorStop(.30, 'rgba(185,215,255,.45)')
+  halo.addColorStop(1, 'rgba(130,170,255,0)')
+  context.fillStyle = halo; context.fillRect(0, 0, 64, 64)
+  const glowTexture = new THREE.CanvasTexture(canvas)
+  const brightCoordinates = coordinates.filter((_, index) => Math.floor(index / 3) % 4 === 0)
+  const brightGeometry = new THREE.BufferGeometry()
+  brightGeometry.setAttribute('position', new THREE.Float32BufferAttribute(brightCoordinates, 3))
+  const brightMaterial = new THREE.PointsMaterial({
+    map: glowTexture, color: 0xffffff, size: 6, sizeAttenuation: false,
+    transparent: true, opacity: .9, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+  const brightStars = new THREE.Points(brightGeometry, brightMaterial)
+  brightStars.name = 'bright-space-stars'
+  brightStars.raycast = () => {}
+  globe.scene().add(brightStars)
+}
 function initLeftGlobe() {
   if (!leftGlobeContainer.value) return
 
@@ -543,26 +678,21 @@ function initLeftGlobe() {
   const height = leftGlobeContainer.value.clientHeight || 700
   const cfg = PLANET_TEXTURES[currentPlanet.value]
 
-  leftGlobe = new Globe(leftGlobeContainer.value, { rendererConfig: { antialias: false, powerPreference: 'low-power' } })
+  leftGlobe = new Globe(leftGlobeContainer.value, { rendererConfig: { antialias: true, alpha: true, powerPreference: 'default' } })
     .width(width)
     .height(height)
     .globeImageUrl(cfg.globe)
-    .globeCurvatureResolution(8)
-    .backgroundColor('#ffffff')
+    .globeCurvatureResolution(3)
+    .backgroundColor('rgba(0,0,0,0)')
     .showAtmosphere(false)
-    .labelsData([])
-    .labelLat('lat')
-    .labelLng('lng')
-    .labelText('name')
-    .labelColor(() => '#ffcf4d')
-    .labelSize(2.2)
-    .labelDotRadius(0.42)
-    .labelDotOrientation('top')
-    .labelAltitude(0.008)
-    .labelResolution(3)
-    .onLabelClick((label: object) => {
-      const q = queries.value.find(q => q.info.query_id === (label as PlanetMarker).id)
-      if (q) chooseSite(q)
+    .htmlElementsData([])
+    .htmlLat('lat')
+    .htmlLng('lng')
+    .htmlAltitude(0.008)
+    .htmlElement(createPlanetMarker)
+    .htmlElementVisibilityModifier((element) => {
+      updateSurfaceVisibility(element, leftGlobe)
+      scheduleMarkerLayout()
     })
     .customLayerData([])
     .customThreeObject(() => create3DPin(0xef4444))
@@ -587,6 +717,9 @@ function initLeftGlobe() {
     })
 
   const controls = leftGlobe.controls()
+  addSparseStars(leftGlobe)
+  skyControllers.left=createCelestialBackdrop(THREE,leftGlobe,currentPlanet.value==='moon',BASE)
+  controls.addEventListener('change', scheduleMarkerLayout)
   if (controls) {
     controls.autoRotate = false
     controls.enableDamping = false
@@ -595,19 +728,41 @@ function initLeftGlobe() {
 
   // Set initial camera view
   leftGlobe.pointOfView({ lat: 0, lng: 0, altitude: 2.2 })
-  leftGlobe.renderer().setPixelRatio(0.6)
+  leftGlobe.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+  leftGlobe.globeTileEngineMaxLevel(currentPlanet.value === 'moon' ? 8 : 7)
+  const body = currentPlanet.value
+  const probe = new Image()
+  probe.onload = () => {
+    if (leftGlobe && currentPlanet.value === body) {
+      leftGlobe.globeTileEngineUrl((x, y, level) => `/api/planet-tiles/${body}/${level}/${x}/${y}.jpg`)
+    }
+  }
+  probe.src = `/api/planet-tiles/${body}/0/0/0.jpg`
 
   leftResizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       if (leftGlobe && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
         leftGlobe.width(entry.contentRect.width)
         leftGlobe.height(entry.contentRect.height)
+        scheduleMarkerLayout()
       }
     }
   })
   leftResizeObserver.observe(leftGlobeContainer.value)
 }
 
+const earthTileUrl = (x: number, y: number, level: number) => `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${level}/${y}/${x}`
+function enableEarthTiles(globe: GlobeInstance) {
+  const probe = new Image()
+  probe.crossOrigin = 'anonymous'
+  const timeout = setTimeout(() => { probe.onload = null; probe.onerror = null }, 12000)
+  probe.onload = () => {
+    clearTimeout(timeout)
+    if (rightGlobe === globe) { globe.globeTileEngineUrl(earthTileUrl) }
+  }
+  probe.onerror = () => { clearTimeout(timeout) }
+  probe.src = earthTileUrl(0, 0, 0)
+}
 function initRightGlobe() {
   if (!rightGlobeContainer.value) return
 
@@ -615,15 +770,48 @@ function initRightGlobe() {
   const height = rightGlobeContainer.value.clientHeight || 700
   const cfg = PLANET_TEXTURES.earth
 
-  rightGlobe = new Globe(rightGlobeContainer.value, { rendererConfig: { antialias: false, powerPreference: 'low-power' } })
+  rightGlobe = new Globe(rightGlobeContainer.value, { rendererConfig: { antialias: true, alpha: true, powerPreference: 'default' } })
     .width(width)
     .height(height)
     .globeImageUrl(cfg.globe)
-    .globeCurvatureResolution(8)
-    .backgroundColor('#ffffff')
+    .globeTileEngineMaxLevel(19)
+    .globeCurvatureResolution(3)
+    .backgroundColor('rgba(0,0,0,0)')
     .showAtmosphere(false)
     .atmosphereColor('#8ec5fc')
     .atmosphereAltitude(0.12)
+    .pathsData([])
+    .pathPoints((ring: any) => ring)
+    .pathPointLat((point: any) => point[1])
+    .pathPointLng((point: any) => point[0])
+    .pathPointAlt(0.002)
+    .pathColor(() => 'rgba(255,255,255,0.65)')
+    .pathStroke(0.35)
+    .pathTransitionDuration(0)
+    .htmlElementsData([])
+    .htmlLat('lat')
+    .htmlLng('lng')
+    .htmlAltitude(0.008)
+    .htmlElement((country: any) => {
+      const element = document.createElement('div')
+      element.className = 'country-label'
+      element.dataset.lat = String(country.lat)
+      element.dataset.lng = String(country.lng)
+      element.dataset.kind = country.kind ?? 'country'
+      element.dataset.rank = String(country.rank)
+      element.textContent = country.name
+      element.style.cssText = 'font:400 11px/1.25 system-ui,sans-serif;color:white;text-shadow:0 1px 3px #000,0 0 3px #000;white-space:nowrap;pointer-events:none;'
+      if (country.kind === 'city') {
+        element.textContent = `● ${country.name}`
+        element.style.color = '#fff2a8'
+        element.style.fontWeight = '600'
+      }
+      return element
+    })
+    .htmlElementVisibilityModifier((element) => {
+      updateSurfaceVisibility(element, rightGlobe)
+      scheduleCountryLabels()
+    })
     .customLayerData([])
     .customThreeObject(() => {
       const pin = create3DPin(0xef4444)
@@ -641,6 +829,14 @@ function initRightGlobe() {
     })
 
   const controls = rightGlobe.controls()
+  addSparseStars(rightGlobe)
+  skyControllers.right=createCelestialBackdrop(THREE,rightGlobe,false,BASE)
+  controls.minDistance = rightGlobe.getGlobeRadius() * 1.00002
+  // Close city views must not clip the surface with the default near plane.
+  const earthCamera = rightGlobe.camera() as PerspectiveCamera
+  earthCamera.near = 0.0001
+  earthCamera.updateProjectionMatrix()
+  controls.addEventListener('change', scheduleCountryLabels)
   if (controls) {
     controls.autoRotate = false
     controls.enableDamping = false
@@ -649,17 +845,98 @@ function initRightGlobe() {
 
   // Focus Earth initially on Western Hemisphere
   rightGlobe.pointOfView({ lat: 20, lng: -100, altitude: 2.2 })
-  rightGlobe.renderer().setPixelRatio(0.6)
+  rightGlobe.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5))
+  // Tint blue/cyan water pixels only; keep the original detail and land colors.
+  rightGlobe.scene().onBeforeRender = () => {
+    rightGlobe?.scene().traverse((object: any) => {
+      const material = object.material
+      if (!material?.isMeshLambertMaterial || !material.map) return
+      const source = material.map.image?.currentSrc || material.map.image?.src || ''
+      if (!source.includes('World_Imagery/MapServer/tile/')) return
+      if (material.userData.deepOcean) return
+      material.userData.deepOcean = true
+      material.onBeforeCompile = (shader: any) => {
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+          #include <map_fragment>
+          float waterBlue = smoothstep(0.005, 0.045, diffuseColor.b - diffuseColor.r);
+          float waterCyan = smoothstep(-0.008, 0.018, diffuseColor.b - diffuseColor.g * 0.85);
+          float neutralBrightness = min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+          float protectIce = smoothstep(0.06, 0.22, neutralBrightness);
+          float waterMask = waterBlue * waterCyan * (1.0 - protectIce);
+          vec3 deepOcean = diffuseColor.rgb * vec3(0.50, 0.40, 1.08);
+          diffuseColor.rgb = mix(diffuseColor.rgb, deepOcean, waterMask * 0.90);
+        `)
+      }
+      material.customProgramCacheKey = () => 'earth-deep-blue-water-v2-protect-ice'
+      material.needsUpdate = true
+    })
+  }
+  enableEarthTiles(rightGlobe)
+  loadCountryBoundaries()
 
   rightResizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       if (rightGlobe && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
         rightGlobe.width(entry.contentRect.width)
         rightGlobe.height(entry.contentRect.height)
+        scheduleCountryLabels()
       }
     }
   })
   rightResizeObserver.observe(rightGlobeContainer.value)
+}
+
+let countryFrame = 0
+const shortCountryNames: Record<string, string> = {
+  CHN: 'China', USA: 'United States', RUS: 'Russia', GBR: 'United Kingdom',
+  KOR: 'South Korea', PRK: 'North Korea', VNM: 'Vietnam', LAO: 'Laos',
+  IRN: 'Iran', SYR: 'Syria', BOL: 'Bolivia', VEN: 'Venezuela', TZA: 'Tanzania',
+  COD: 'DR Congo', COG: 'Congo', FSM: 'Micronesia', ARE: 'UAE',
+  CYN: 'Northern Cyprus', CAF: 'Central African Rep.', BIH: 'Bosnia & Herzegovina',
+  VIR: 'U.S. Virgin Islands', VGB: 'British Virgin Islands',
+  SGS: 'South Georgia Islands', ATF: 'French Southern Lands',
+}
+function scheduleCountryLabels() {
+  if (countryFrame) return
+  countryFrame = requestAnimationFrame(() => {
+    countryFrame = 0
+    const container = rightGlobeContainer.value
+    if (!container || !rightGlobe) return
+    const bounds = container.getBoundingClientRect()
+    const altitude = rightGlobe.pointOfView().altitude
+    const maxRank = altitude > 1.5 ? 3 : altitude > .6 ? 5 : 9
+    const used: DOMRect[] = []
+    const labels = [...container.querySelectorAll<HTMLElement>('.country-label')]
+      .sort((a, b) => Number(a.dataset.rank) - Number(b.dataset.rank))
+    for (const label of labels) {
+      label.style.visibility = 'hidden'
+      const city = label.dataset.kind === 'city'
+      if (!updateSurfaceVisibility(label, rightGlobe) || (city ? altitude > .3 : Number(label.dataset.rank) > maxRank || altitude < .04)) continue
+      const rect = label.getBoundingClientRect()
+      if (rect.left < bounds.left + 8 || rect.right > bounds.right - 8 || rect.top < bounds.top + 8 || rect.bottom > bounds.bottom - 8) continue
+      if (used.some(r => rect.left < r.right + 8 && rect.right > r.left - 8 && rect.top < r.bottom + 5 && rect.bottom > r.top - 5)) continue
+      label.style.visibility = 'visible'
+      used.push(rect)
+    }
+  })
+}
+async function loadCountryBoundaries() {
+  try {
+    const response = await fetch(`${BASE}maps/countries.geojson`)
+    if (!response.ok) throw new Error('Country overlay unavailable')
+    const data = await response.json()
+    if (!rightGlobe) return
+    const rings = data.features.flatMap((feature: any) =>
+      feature.geometry.type === 'Polygon' ? feature.geometry.coordinates : feature.geometry.coordinates.flat())
+    rightGlobe.pathsData(rings)
+    rightGlobe.htmlElementsData([...data.features.map((feature: any) => ({
+      ...feature.properties,
+      name: shortCountryNames[feature.properties.code] ?? feature.properties.name,
+    })), ...missionCities.map(city => ({name:city.name,lat:city.lat,lng:city.lon,rank:0,kind:'city'}))])
+    scheduleCountryLabels()
+  } catch (error) {
+    console.warn('Could not load country boundaries', error)
+  }
 }
 
 function restoreSplitView() {
@@ -690,6 +967,33 @@ function toggleRightInfo() {
 
 const cropFrame = ref<HTMLElement | null>(null)
 const crop = ref({ x: 25, y: 25, width: 50, height: 50 })
+const cropSearchBusy = ref(false)
+const cropSearchError = ref('')
+const cropSearchResult = ref<{ image_url: string; size_m: number[]; note: string; box_percent: number[] } | null>(null)
+const cropSearchSupported = computed(() => ['moon_judge_colab_env_global', 'mars_judge_colab_env_global'].includes(runId.value))
+const canExport = computed(() => !!selectedQuery.value && resultsRequested.value && candidates.value.length > 0 && !cropSearchBusy.value && !lightingBusy.value && !regionBusy.value)
+watch(canExport, available => { if (!available && menu.value === 'export') menu.value = '' })
+async function searchSelectedCrop(box = crop.value) {
+  if (cropSearchBusy.value || !selectedQuery.value) return
+  const queryId = selectedQuery.value, sourceRun = runId.value
+  cropSearchBusy.value = true; cropSearchError.value = ''
+  try {
+    const response = await fetch(`/api/analogs/${sourceRun}/crop-search`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query_id: queryId, ...box, ...regionScope(), user_lat: originCity.value.lat, user_lon: originCity.value.lon }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Crop search failed.')
+    if (queryId !== selectedQuery.value || sourceRun !== runId.value) return
+    candidates.value = data.candidates
+    cropSearchResult.value = data.crop_search
+    resultsRequested.value = true; resultsHidden.value = false
+    earthInspectorOpen.value = false; earthMatched.value = false; showRightInfo.value = false
+    rightGlobe?.customLayerData([])
+  } catch (error) {
+    cropSearchError.value = error instanceof Error ? error.message : 'Crop search failed. Please try again.'
+  } finally { cropSearchBusy.value = false }
+}
 let cropDrag: { mode: string; x: number; y: number; start: typeof crop.value; width: number; height: number } | null = null
 const cropDimensions = computed(() => ({ width: Math.round(crop.value.width * footprint.value / 100), height: Math.round(crop.value.height * footprint.value / 100) }))
 const cropDialog = ref<HTMLDialogElement | null>(null)
@@ -778,6 +1082,9 @@ function exitRoiMode() {
 }
 
 async function findTerrestrialAnalogs() {
+  if (regionBusy.value || regionError.value) return
+  cropSearchResult.value = null
+  cropSearchError.value = ''
   const q = currentQuery()
   if (!q) {
     apiStatus.value = 'No analog run for this planet'
@@ -795,10 +1102,12 @@ async function findTerrestrialAnalogs() {
 
 
 onMounted(() => {
+  fetch('/api/analogs/groups').then(r => { if (!r.ok) throw new Error(); return r.json() }).then(data => { regionGroups.value = data }).catch(() => { regionError.value = 'Country list unavailable. Reload to try again.' })
   document.addEventListener('pointerdown', closeMenuOnOutsideClick)
   window.addEventListener('resize', restoreOnNarrowScreen)
   loadReport()
   loadMarkerCatalog()
+  initializeGlobes()
 })
 
 onBeforeUnmount(() => {
@@ -806,6 +1115,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', restoreOnNarrowScreen)
   stopDividerDrag?.()
   clearTimeout(dividerSnapTimer)
+  cancelAnimationFrame(markerFrame)
+  cancelAnimationFrame(countryFrame)
+  leftGlobe?.controls().removeEventListener('change', scheduleMarkerLayout)
+  rightGlobe?.controls().removeEventListener('change', scheduleCountryLabels)
+  skyControllers.left?.dispose();skyControllers.right?.dispose()
+  leftGlobe?._destructor()
+  rightGlobe?._destructor()
   if (leftResizeObserver) leftResizeObserver.disconnect()
   if (rightResizeObserver) rightResizeObserver.disconnect()
 })
@@ -815,19 +1131,22 @@ onBeforeUnmount(() => {
   <div class="terratwinn-app">
     <!-- Top Bar: Options, Tools, TerraTwinn, Export -->
     <header class="top-bar">
-      <label v-if="devMode" class="run-select">Result run
+      <div class="explorer-navigation">
+      <a class="setup-back-button" href="#/setup" aria-label="Back to mission setup"><span aria-hidden="true">←</span> Back</a>
+      <label v-if="devMode || visibleRuns.length > 1" class="run-select">{{ devMode ? 'Result run' : 'Mode' }}
         <select aria-label="Result run" :value="runId" :disabled="!runId" @change="selectRun(($event.target as HTMLSelectElement).value)">
-          <option v-for="run in planetRuns" :key="run.id" :value="run.id">{{ run.label ?? run.id }}</option>
+          <option v-for="run in visibleRuns" :key="run.id" :value="run.id">{{ runLabel(run) }}</option>
         </select>
       </label>
+      </div>
       <div class="top-center">
         <h1 class="brand-title"><a class="brand-link" href="#/setup" title="Back to mission setup">TerraTwinn</a></h1>
         <small v-if="devMode || apiStatus.startsWith('Backend')" class="api-line">{{ apiStatus }}</small>
       </div>
 
 
-      <div class="top-right" data-menu="export">
-        <button class="display-mode-btn" :disabled="loading3D" @click="enable3D">{{ loading3D ? 'Loading 3D…' : display3D ? 'Use image view' : 'Enable 3D globe' }}</button>
+      <div v-if="canExport" class="top-right" data-menu="export">
+
         <button class="export-capsule-btn" :aria-expanded="menu === 'export'" @click="toggleMenu('export')">
           <span>Export</span>
           <svg class="chevron-down-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
@@ -836,7 +1155,7 @@ onBeforeUnmount(() => {
         </button>
         <div v-if="menu === 'export'" class="menu-panel menu-panel-right">
           <button class="menu-link" :disabled="!selectedQuery" @click="downloadJson">Download this site's report (JSON)</button>
-          <a v-if="queries.length && candidates.length && !isIlilaRun" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
+          <a v-if="queries.length && candidates.length && !isIlilaRun && !cropSearchResult" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
         </div>
       </div>
     </header>
@@ -859,26 +1178,19 @@ onBeforeUnmount(() => {
         class="viewport-half left-half" :class="{ 'pane-expanded': collapsedPane === 'right', 'is-fullscreen': fullscreenPane === 'left' }"
       >
         <!-- 3D Globe Canvas Container: Permanently mounted so WebGL canvas is never destroyed -->
-        <div v-show="display3D" ref="leftGlobeContainer" class="globe-canvas"></div>
-        <div v-if="!display3D" class="image-view">
-          <template v-if="selectedQuery && queryHasImage && !isIlilaRun">
-            <img :src="imgUrl('query')" :alt="`${targetInfo.name} optical ROI`" />
-            <p>{{ targetInfo.name }} · {{ footprint }} m optical ROI</p>
-          </template>
-          <template v-else>
-            <div class="image-planet-preview"><LandingPlanetLite :src="`${BASE}textures/${currentPlanet}-preview.jpg`" :lon="0" :lat="0" :label="currentPlanet === 'mars' ? 'Mars' : 'Moon'" /></div>
-            <p>{{ selectedQuery ? 'No planetary optical image for this site. See the available evidence.' : 'Loading site imagery…' }}</p>
-          </template>
-        </div>
+        <div ref="leftGlobeContainer" class="globe-canvas"></div>
+
+
 
         <!-- Mode 1: 3D Globe Controls Layer -->
+        <small class="planet-imagery-credit">Surface detail: NASA Trek · original globe colors</small>
         <div v-show="leftViewMode === 'globe'" class="globe-controls-layer">
           <!-- Left Header Controls -->
           <div class="viewport-header justify-end">
             <div v-if="queries.length" class="site-search" @focusout="closeSiteSearch">
               <div class="site-search-field">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 4.5 4.5"/></svg>
-                <input ref="siteSearchInput" v-model="siteSearch" placeholder="Search sites" aria-label="Search sites" :aria-expanded="searchOpen" @focus="searchOpen = true" @keydown.esc="searchOpen = false" @keydown.enter.prevent="filteredSites[0] && chooseSite(filteredSites[0])" />
+                <input ref="siteSearchInput" v-model="siteSearch" placeholder="Next, enter the location where you want to land." title="Next, enter the location where you want to land." aria-label="Search sites" :aria-expanded="searchOpen" @focus="searchOpen = true" @keydown.esc="searchOpen = false" @keydown.enter.prevent="filteredSites[0] && chooseSite(filteredSites[0])" />
                 <button v-if="siteSearch" type="button" class="site-search-clear" aria-label="Clear search" @mousedown.prevent @click="clearSiteSearch">×</button>
               </div>
               <div v-if="searchOpen" class="site-search-results">
@@ -1017,7 +1329,7 @@ onBeforeUnmount(() => {
               <div class="transect-header">
                 <div class="transect-title">
                   <strong>Measured evidence</strong>
-                  <p class="evidence-description">Measurements and ranking use the full {{ footprint }} m ROI. The crop is a preview.</p>
+                  <p class="evidence-description">{{ cropSearchResult ? 'Results use the submitted crop and regional context. Terrain measurements below describe the original ROI, not the crop.' : 'Full-ROI search uses the original image. Use Search selected crop to run the model on your selection.' }}</p>
                 </div>
                 <div class="transect-metrics">
                   <span class="metric-item">Slope: <strong>{{ targetInfo.slope }}</strong></span>
@@ -1040,9 +1352,18 @@ onBeforeUnmount(() => {
                 <p v-if="lightingError" role="alert">{{lightingError}}</p>
               </div>
               <div class="roi-cta-bar">
-                <button class="find-analogs-btn" :disabled="lightingBusy || (!queryHasImage && !isIlilaRun)" @click="findTerrestrialAnalogs">
+                <button v-if="cropSearchSupported && activeRoiLayer === 'optical'" class="find-analogs-btn" :disabled="regionBusy || cropSearchBusy || lightingBusy || !queryHasImage" @click="searchSelectedCrop()">
+                  {{ cropSearchBusy ? 'Running crop model…' : 'Search selected crop' }}
+                </button>
+                <button class="find-analogs-btn" :disabled="regionBusy || !!regionError || cropSearchBusy || lightingBusy || (!queryHasImage && !isIlilaRun)" @click="findTerrestrialAnalogs">
                   <span>{{lightingBusy ? 'Calculating light matches…' : 'Find Terrestrial Analogs'}}</span>
                 </button>
+              </div>
+              <p v-if="cropSearchBusy" role="status">Encoding the selected pixels with DINOv3 and ranking Earth sites. First inference may take a minute.</p>
+              <p v-if="cropSearchError" role="alert">{{ cropSearchError }}</p>
+              <div v-if="cropSearchResult" class="crop-search-summary">
+                <img :src="cropSearchResult.image_url" alt="Exact crop used for the new model inference" style="width:80px;height:80px;object-fit:contain" />
+                <span>New crop results · {{ cropSearchResult.size_m.map(v => v.toFixed(1)).join(' × ') }} m. {{ cropSearchResult.note }} Low-Sun scheduling is available through full-ROI search.</span>
               </div>
             </div>
           </div>
@@ -1070,26 +1391,29 @@ onBeforeUnmount(() => {
         class="viewport-half right-half"
         :class="{ 'is-fullscreen': fullscreenPane === 'right', 'pane-expanded': collapsedPane === 'left' }"
       >
+        <div v-if="resultsRequested && runId.endsWith('_global')" class="region-filter">
+          <div class="region-filter-fields">
+            <label>Continent<select aria-label="Continent" v-model="regionContinent" :disabled="regionBusy || cropSearchBusy || lightingBusy"><option value="">All continents</option><option v-for="(count, name) in regionGroups.continents" :key="name" :value="name">{{ name }} ({{ count }})</option></select></label>
+            <label>Country<select aria-label="Country" v-model="regionCountry" :disabled="regionBusy || cropSearchBusy || lightingBusy"><option value="">All countries</option><option v-for="c in regionCountries" :key="c.country_code" :value="c.country_code">{{ c.country }} ({{ c.n_regions }})</option></select></label>
+            <button :disabled="regionBusy || cropSearchBusy || lightingBusy" @click="applyRegionFilter">{{ regionBusy ? 'Searching…' : 'Apply filters' }}</button>
+          </div>
+          <small>Search the catalog within this region. Choose All to search globally.</small>
+          <p v-if="regionError" role="alert">{{ regionError }}</p>
+        </div>
         <!-- Right Header Controls -->
         <div class="viewport-header justify-end">
         </div>
 
         <!-- 3D Globe Canvas Container -->
-        <div v-show="display3D" ref="rightGlobeContainer" class="globe-canvas"></div>
-        <div v-if="!display3D" class="image-view earth-image-view">
-          <template v-if="selectedCandidate">
-            <img v-if="selectedCandidate.optical_context" :src="selectedCandidate.optical_context.image_url" :alt="`${candidateName(selectedCandidate)} satellite optical ROI`" />
-            <div v-else class="image-view-candidate" :style="candidateStyle(selectedCandidate, selectedCandidateIndex)" role="img" :aria-label="`Optical ROI of ${candidateName(selectedCandidate)}`"></div>
-            <p>{{ candidateName(selectedCandidate) }}</p>
-          </template>
-          <template v-else>
-            <div class="image-planet-preview"><LandingPlanetLite :src="`${BASE}textures/earth-preview.jpg`" :lon="0" :lat="0" label="Earth" atmosphere /></div>
-            <p>Earth overview · Find analogs to view site imagery.</p>
-          </template>
-        </div>
+        <div ref="rightGlobeContainer" class="globe-canvas"></div>
+
+
 
         <!-- Top-5 candidate cards -->
-        <p v-if="resultsRequested && !candidates.length && !lightingBusy && !lightingError" class="no-accepted-results">{{isLunarLanding ? 'No accepted sites have a matching low-Sun window in this search period. Try another lunar reference time.' : 'No candidates passed the field-test screen for this location.'}}</p>
+
+        <a class="earth-imagery-credit" href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener noreferrer">Imagery © Esri, Maxar, Earthstar Geographics & GIS User Community</a>
+        <p v-if="cropSearchResult && candidates.length" class="screen-caption">Results from the submitted crop · fresh DINOv3 inference + regional context</p>
+        <p v-if="resultsRequested && !candidates.length && !regionBusy && !regionError && !cropSearchBusy && !lightingBusy && !lightingError" class="no-accepted-results">{{isLunarLanding ? 'No accepted sites in this region have a matching low-Sun window. Try another region or reference time.' : 'No accepted candidates in this region. Choose another country or continent, or select All and apply filters.'}}</p>
         <div v-if="candidates.length" class="results-drawer" :class="{ 'is-hidden': resultsHidden }">
           <button class="results-toggle" :aria-expanded="!resultsHidden" :aria-label="resultsHidden ? 'Show candidates' : 'Hide candidates'" @click="resultsHidden = !resultsHidden">{{ resultsHidden ? '‹' : '›' }}</button>
           <div class="cand-list" aria-label="Top-5 Earth candidates" :inert="resultsHidden">
@@ -1163,7 +1487,7 @@ onBeforeUnmount(() => {
                 <figcaption>{{ selectedCandidate.optical_context.source }} · {{ selectedCandidate.optical_context.gsd_m }} m/pixel · {{ selectedCandidate.optical_context.footprint_m }} m footprint. Optical context for image features; separate from the iLILA engineering score.</figcaption>
               </figure>
               <div class="earth-comparison" :class="{ compact: earthInspectorTab !== 'overview', 'ilila-profiles': isIlilaRun }">
-                <figure v-if="!isIlilaRun"><img :src="imgUrl('query')" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>Original ROI: {{ footprint }} m</span></figcaption></figure>
+                <figure v-if="!isIlilaRun"><img :src="cropSearchResult?.image_url ?? imgUrl('query')" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>{{ cropSearchResult ? 'Submitted crop: ' + cropSearchResult.size_m.map(v => v.toFixed(1)).join(' × ') + ' m' : 'Original ROI: ' + footprint + ' m' }}</span></figcaption></figure>
                 <figure><div class="earth-comparison-candidate" role="img" :aria-label="`Image of ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}"></div><figcaption><strong>Earth · {{ candidateName(selectedCandidate) }}</strong><span>{{ isIlilaRun ? 'Engineering profiles: two 1 km arms and station PSD' : runId.endsWith('_global') ? 'Catalog ROI: 250 m' : 'Candidate footprint: not provided' }}</span></figcaption></figure>
               </div>
               <nav class="earth-tabs" aria-label="Candidate information">
@@ -1283,6 +1607,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.explorer-navigation { display:flex; align-items:center; gap:14px; }
+.setup-back-button { display:inline-flex; align-items:center; gap:7px; padding:8px 14px; border:1px solid #cbd5e1; border-radius:20px; background:#fff; color:#111827; font:14px system-ui,sans-serif; text-decoration:none; white-space:nowrap; }
+.setup-back-button:hover { background:#f1f5f9; border-color:#64748b; }
+.setup-back-button:focus-visible { outline:2px solid #3b82f6; outline-offset:3px; }
+.globe-canvas :deep(.planet-marker[data-front="false"]),
+.globe-canvas :deep(.country-label[data-front="false"]) { display: none !important; pointer-events: none !important; }
+.planet-imagery-credit { position:absolute; bottom:3px; left:65px; right:65px; z-index:4; text-align:center; font:10px/1.3 system-ui,sans-serif; color:#8d9bb1; pointer-events:none; }
+.earth-imagery-credit { position:absolute; bottom:3px; left:65px; right:65px; z-index:4; text-align:center; font:10px/1.3 system-ui,sans-serif; color:#a7b4c9; background:rgba(7,12,21,.78); border-radius:3px; text-decoration:none; }
 .terratwinn-app {
   width: 100%;
   height: 100vh;
@@ -1322,13 +1654,6 @@ onBeforeUnmount(() => {
 
 .run-select { display:flex; flex-direction:column; gap:2px; width:min(30vw,400px); color:#334155; font-size:12.5px; }
 .run-select select { width:100%; padding:4px; border:1px solid #cbd5e1; border-radius:5px; background:white; color:#111827; font-size:13px; text-overflow:ellipsis; }
-.display-mode-btn { border:1px solid #cbd5e1; border-radius:6px; padding:6px 9px; margin-right:12px; background:#f8fafc; font-size:13px; cursor:pointer; }
-.image-view { position:absolute; inset:76px 16px 80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:#64748b; text-align:center; }
-.image-view > img, .image-view-candidate { width:min(100%,420px); aspect-ratio:1; object-fit:contain; border-radius:8px; background-color:#f1f5f9; }
-.image-view-candidate { background-position:center; background-repeat:no-repeat; }
-.image-planet-preview { width:min(100%,340px); aspect-ratio:1; flex-shrink:0; }
-.earth-image-view { right:330px; }
-@media(max-width:900px) { .earth-image-view { right:16px; } .display-mode-btn { font-size:12.5px; margin-right:5px; padding:5px; } }
 
 .menu-item-btn {
   background: transparent;
@@ -1404,11 +1729,11 @@ onBeforeUnmount(() => {
   position: relative;
   height: 100%;
   overflow: hidden;
-  background: #ffffff;
+  background: radial-gradient(ellipse at 50% 48%, #101d32 0%, #080f1c 48%, #03060c 85%);
 }
 
 .left-half {
-  border-right: 2px solid #000000;
+  border-right: 2px solid #1b2638;
 }
 
 .viewport-half.is-fullscreen {
@@ -1615,6 +1940,7 @@ onBeforeUnmount(() => {
   bottom: 20px;
   z-index: 20;
   background: transparent;
+  color: #ffffff;
   border: none;
   cursor: pointer;
   padding: 6px;
@@ -1651,14 +1977,14 @@ onBeforeUnmount(() => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2.6px solid #000000;
+  border: 2.6px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: -apple-system, BlinkMacSystemFont, "Times New Roman", Georgia, serif;
   font-size: 17px;
   font-weight: 900;
-  color: #000000;
+  color: #ffffff;
   line-height: 1;
   user-select: none;
   box-sizing: border-box;
@@ -1992,16 +2318,28 @@ onBeforeUnmount(() => {
 .chip { display: inline-block; width: fit-content; padding: 0 8px; border-radius: 9999px; font-size: 12.5px; font-weight: 700; }
 .chip.ok { background: #bbf7d0; } .chip.mid { background: #fde68a; } .chip.bad { background: #e2e8f0; }
 @media (max-width: 900px) { .cand-list { position: static; width: auto; max-height: none; padding: 8px 12px; } }
+.region-filter { position:absolute; top:12px; left:12px; right:12px; z-index:40; padding:10px 12px; border:1px solid #465164; border-radius:10px; background:#0b1220ed; color:#e2e8f0; }
+.region-filter-fields { display:flex; gap:8px; align-items:end; flex-wrap:wrap; }
+.region-filter label { display:grid; gap:3px; font-size:12px; flex:1; min-width:115px; }
+.region-filter select { width:100%; min-width:0; padding:7px; border:1px solid #64748b; border-radius:5px; background:#111827; color:white; }
+.region-filter button { padding:8px 10px; border:0; border-radius:5px; background:#ffdc48; color:#171717; cursor:pointer; }
+.region-filter button:disabled { opacity:.5; cursor:wait; }
+.region-filter small { display:block; margin-top:7px; font-size:11px; color:#b9c5d7; }
+.region-filter p { color:#fca5a5; font-size:12px; margin:6px 0 0; }
+.right-half:has(.region-filter) .results-drawer { top:135px; }
+.right-half:has(.region-filter) .no-accepted-results { top:135px; }
+@media (max-width:600px) { .right-half:has(.region-filter) .results-drawer { top:175px; } }
 </style>
 
 <style scoped>
-.site-search { width: min(260px, 48%); position: relative; font-size: 14px; }
+.site-search { width: min(420px, 100%); position: relative; font-size: 14px; }
 .site-search-field { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 999px; background: #050505; box-shadow: 0 3px 14px #0003; color: white; }
 .site-search-field span { font-size: 24px; line-height: 1; }
 .site-search input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; font: inherit; color: white; }
 .site-search-clear { flex: none; border: 0; padding: 0 2px; background: transparent; color: #bcbcbc; font-size: 22px; line-height: 1; cursor: pointer; }
 .site-search-clear:hover, .site-search-clear:focus-visible { color: white; }
-.site-search input::placeholder { color: #bcbcbc; opacity: 1; }
+.site-search input::placeholder { color: #bcbcbc; opacity: 1; font-size: 12px; }
+.site-search-field > svg { flex-shrink: 0; }
 .site-search-results { position: absolute; top: calc(100% + 5px); width: 100%; background: #111; border-radius: 12px; box-shadow: 0 5px 18px #0005; max-height: min(252px, 55vh); overflow-y: auto; overscroll-behavior: contain; }
 .site-search-results button { display: block; width: 100%; border: 0; padding: 11px 14px; line-height: 20px; text-align: left; background: #111; cursor: pointer; font: inherit; line-height: 20px; color: white; }
 .site-search-results button:hover, .site-search-results button:focus { background: #333; }
@@ -2033,7 +2371,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .roi-preview { position: relative; display: block; width: 100%; height: 130px; padding: 0; overflow: hidden; border: 0; border-radius: 8px; background: #292929; color: white; cursor: pointer; text-align: left; }
 .roi-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.roi-preview > span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent, rgba(0,0,0,.85)); font-size: 13px; font-weight: 600; }
+.roi-preview > span { position: absolute; inset: auto 8px 8px; padding: 10px 12px; border: 1px solid #ffe780; border-radius: 6px; background: #ffdc48; color: #171717; box-shadow: 0 2px 8px #0005; text-align: center; font-size: 13px; font-weight: 700; }
+.roi-preview:hover > span { background: #ffe778; }
+.roi-preview:active > span { background: #f4c82e; }
 .roi-preview:focus-visible { outline: 2px solid #78baff; outline-offset: 3px; }
 </style>
 
@@ -2137,7 +2477,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .earth-preview-button { display: block; border: 0; position: relative; overflow: hidden; cursor: pointer; color: white; text-align: left; }
-.earth-preview-button span { position: absolute; inset: auto 0 0; padding: 24px 10px 9px; background: linear-gradient(transparent,#000d); font-size: 13px; font-weight: 600; }
+.earth-preview-button span { position: absolute; inset: auto 8px 8px; padding: 10px 12px; border: 1px solid #ffe780; border-radius: 6px; background: #ffdc48; color: #171717; box-shadow: 0 2px 8px #0005; text-align: center; font-size: 13px; font-weight: 700; }
+.earth-preview-button:hover span { background: #ffe778; }
+.earth-preview-button:active span { background: #f4c82e; }
 .earth-inspector { position: absolute; inset: 0; z-index: 45; background: #f7f7f5; color: #17191b; display: flex; flex-direction: column; overflow: hidden; }
 .earth-inspector-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #e1e4e8; background: white; }
 .earth-inspector-header > div { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

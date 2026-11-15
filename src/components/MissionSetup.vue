@@ -4,6 +4,7 @@ import { cityForSetup, missionCities, missionTypes, searchCities, type MissionCi
 
 const props = defineProps<{ initial?: MissionSetup | null }>()
 const emit = defineEmits<{ complete: [setup: MissionSetup] }>()
+const logoUrl = `${import.meta.env.BASE_URL}favicon.svg`
 const body = ref<'moon' | 'mars' | ''>(props.initial?.body ?? '')
 const mission = ref<MissionType | ''>(props.initial?.mission ?? '')
 const city = ref<MissionCity | null>(props.initial ? cityForSetup(props.initial) : null)
@@ -43,14 +44,14 @@ function blur(event: FocusEvent) {
   <section class="setup-page" aria-labelledby="welcome-title">
     <a href="#/" class="home-link">Back to introduction</a>
     <div class="setup-window">
-      <div class="window-bar"><span class="window-mark" aria-hidden="true">T</span><span>TerraTwinn · Mission setup</span><span class="step-label">Step 1 of 2</span></div>
+      <div class="window-bar"><img class="window-mark" :src="logoUrl" alt="" aria-hidden="true" /><span>TerraTwinn · Mission setup</span><span class="step-label">Step 1 of 2</span></div>
       <form class="setup-form" @submit.prevent="submit">
         <header><p class="eyebrow">BEFORE YOU BEGIN</p><h1 id="welcome-title">Welcome to TerraTwinn.</h1><p class="intro">Set up your mission to find comparable terrain for testing on Earth.</p></header>
 
         <fieldset><legend><span class="number">1</span> Which world are you planning for? <span class="required">*</span></legend>
           <div class="body-options">
-            <label class="body-option" :class="{ selected: body === 'moon' }"><input v-model="body" type="radio" name="body" value="moon" required /><span class="planet-icon moon" aria-hidden="true"></span><span>Moon<small>Earth’s natural satellite</small></span><span class="check" aria-hidden="true">{{ body === 'moon' ? '✓' : '' }}</span></label>
-            <label class="body-option" :class="{ selected: body === 'mars' }"><input v-model="body" type="radio" name="body" value="mars" required /><span class="planet-icon mars" aria-hidden="true"></span><span>Mars<small>The red planet</small></span><span class="check" aria-hidden="true">{{ body === 'mars' ? '✓' : '' }}</span></label>
+            <label class="body-option" :class="{ selected: body === 'moon' }"><input v-model="body" type="radio" name="body" value="moon" required /><span>Moon<small>Earth’s natural satellite</small></span><span class="check" aria-hidden="true">{{ body === 'moon' ? '✓' : '' }}</span></label>
+            <label class="body-option" :class="{ selected: body === 'mars' }"><input v-model="body" type="radio" name="body" value="mars" required /><span>Mars<small>The red planet</small></span><span class="check" aria-hidden="true">{{ body === 'mars' ? '✓' : '' }}</span></label>
           </div>
         </fieldset>
 
@@ -74,12 +75,12 @@ function blur(event: FocusEvent) {
 </template>
 
 <style scoped>
-.setup-page { min-height: 100dvh; height: 100%; overflow-y: auto; background: #fff; color: #202124; font-family: Inter, 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 60px 24px 30px; }
-.home-link { position: absolute; left: 28px; top: 22px; font-size: 16px; color: #65706e; text-decoration: none; }
-.home-link:hover { color: #111; text-decoration: underline; }
+.setup-page { min-height: 100dvh; height: 100%; overflow-y: auto; background: #000000; color: #202124; font-family: Inter, 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 60px 24px 30px; }
+.home-link { position: absolute; left: 28px; top: 22px; font-size: 16px; color: #bdc7d5; text-decoration: none; }
+.home-link:hover { color: #fff; text-decoration: underline; }
 .setup-window { width: min(100%, 620px); border: 1px solid #d8dcd9; border-radius: 12px; box-shadow: 0 8px 32px #1b30200b, 0 1px 3px #00000007; background: white; }
 .window-bar { display: flex; gap: 9px; align-items: center; height: 40px; padding: 0 16px; background: #f6f7f5; border-bottom: 1px solid #e3e6e1; border-radius: 12px 12px 0 0; font-size: 14px; color: #637062; }
-.window-mark { background: #252d28; color: white; width: 18px; height: 18px; border-radius: 4px; text-align: center; font-size: 15px; line-height: 18px; font-weight: 700; }
+.window-mark { display: block; width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
 .step-label { margin-left: auto; font-size: 13px; }
 .setup-form { padding: 29px 30px 22px; display: grid; gap: 22px; }
 .eyebrow { font-size: 12px; letter-spacing: .17em; font-weight: 600; color: #879080; margin-bottom: 9px; }
@@ -95,9 +96,6 @@ legend, .field-title { display: flex; gap: 7px; align-items: center; font-size: 
 .body-option:focus-within, .mission-option:focus-within { outline: 2px solid #5a735b; outline-offset: 3px; }
 .body-option small { display: block; font-size: 13px; color: #8a9284; margin-top: 3px; }
 .selected { border-color: #7f9277 !important; background: #f5f8f1; }
-.planet-icon { width: 29px; height: 29px; border-radius: 50%; flex-shrink: 0; box-shadow: inset -7px -3px 7px #0003; }
-.moon { background: radial-gradient(circle at 30% 38%, #969b93 0 10%, transparent 12%), radial-gradient(circle at 65% 65%, #aeb3a9 0 14%, transparent 16%), #dce0d5; }
-.mars { background: radial-gradient(circle at 62% 60%, #9b5d45 0 18%, transparent 20%), #c68c69; }
 .check { margin-left: auto; color: #567247; font-size: 15px; }
 .mission-options { display: grid; gap: 7px; }
 .mission-option { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #e3e6de; border-radius: 6px; cursor: pointer; }

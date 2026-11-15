@@ -41,3 +41,28 @@ test('missing token fails closed without contacting backend', async () => {
   await handler({method:'GET',url:'/api/proxy',query:{path:'analogs/runs'}},res)
   assert.equal(res.statusCode,503)
 })
+
+test('crop search forwards JSON and tiles pass through the proxy', async () => {
+  process.env.TERRATWINN_API_URL='http://backend.test:8001'
+  process.env.TERRATWINN_API_TOKEN='test-token'
+  const original=global.fetch
+  let called=0
+  global.fetch=async (url,options) => {
+    called++
+    if(options.method==='POST') {
+      assert.equal(url.pathname,'/api/analogs/moon_judge_colab_env_global/crop-search')
+      assert.equal(JSON.parse(options.body).query_id,'apollo11')
+      assert.equal(options.headers['Content-Type'],'application/json')
+    } else assert.equal(url.pathname,'/api/planet-tiles/moon/0/0/0.jpg')
+    return new Response('{}',{headers:{'content-type':'application/json'}})
+  }
+  try {
+    for(const req of [
+      {method:'POST',query:{path:'analogs/moon_judge_colab_env_global/crop-search'},body:{query_id:'apollo11',x:0,y:0,width:50,height:50}},
+      {method:'GET',query:{path:'planet-tiles/moon/0/0/0.jpg'}},
+    ]) {
+      const res=response();await handler({...req,url:'/api/proxy'},res);assert.equal(res.statusCode,200)
+    }
+    assert.equal(called,2)
+  } finally {global.fetch=original}
+})
