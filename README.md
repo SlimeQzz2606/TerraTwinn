@@ -1,7 +1,7 @@
 # TerraTwinn frontend
 
 Standalone Vue 3 + TypeScript + Vite UI extracted from `miuy3107/mars-analysis`,
-branch `tkn-new-version`, commit `b9915dd`. Scientific data and the Python backend stay on Azure.
+branch `tkn-new-version`, commit `f03882f`. Scientific data and the Python backend stay on Azure.
 
 ## Local development
 
@@ -58,3 +58,5 @@ are forwarded only to the verified Mars/Moon Colab run endpoints. Other write
 endpoints remain blocked. The proxy waits at most 55 seconds for crop searches
 and 25 seconds for read requests. Azure must have sufficient RAM and access to
 the gated DINOv3 ViT-L SAT weights; saved report browsing does not need weights.
+
+The f03882f crop search uses precomputed spatial features. Build the cache once on Azure with scripts/build_spatial_features.py; interactive requests do not run the encoder.

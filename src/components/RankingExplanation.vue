@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {computed} from 'vue'
-interface Part {value:number|null;weight:number;confidence:number}
-interface Candidate {rank:number;region:string;region_name?:string;composite?:number;final_score?:number;distance_km?:number|null;score_missing_policy?:string;validation_assessment?:string;score_components?:Record<string,Part>;ranking_terrain?:{query_slope_p90_deg:number|null;earth_slope_p90_deg:number|null;query_source_url?:string|null;earth_source_url?:string|null;missing_reason:string|null}}
-const props=defineProps<{candidate:Candidate;candidates:Candidate[]}>()
+interface Part {value:number|null;weight:number;confidence:number;method?:string;earth_mean_speed_ms?:number|null;half_score_speed_ms?:number}
+interface Environment {temperature_midrange_K?:number|null;temperature_range_K?:number|null;temperature_provenance?:string;wind_mean_ms?:number|null;wind_provenance?:string;lithology?:string[];lithology_provenance?:string}
+interface Candidate {factor_score?:number;ranking_mode?:string;rank:number;region:string;region_name?:string;cosine?:number|null;earth_environment?:Environment;composite?:number;final_score?:number;distance_km?:number|null;score_missing_policy?:string;validation_assessment?:string;score_components?:Record<string,Part>;ranking_terrain?:{query_slope_p90_deg:number|null;earth_slope_p90_deg:number|null;query_source_url?:string|null;earth_source_url?:string|null;missing_reason:string|null}}
+const props=defineProps<{candidate:Candidate;candidates:Candidate[];targetEnvironment?:Environment|null;body?:'moon'|'mars';crop?:boolean}>()
 const labels:Record<string,string>={visual:'Image resemblance',lithology:'Rock / mineral classes',temperature:'Regional temperature resemblance',slope:'Slope compatibility',wind:'Regional wind resemblance',geometry:'iLILA geometry margin (line of sight, relief, route)',seismic:'Seismic noise (0.1-10 Hz, Earth NLNM/NHNM reference)',thermal:'Thermal cycling similarity',anchoring:'Loose cover over hard rock (anchoring)',anthropogenic:'Human noise (night lights, roads)'}
 const shortLabels:Record<string,string>={visual:'Image',lithology:'Rock / minerals',temperature:'Temperature',slope:'Slope',wind:'Wind',geometry:'Geometry',seismic:'Seismic noise',thermal:'Thermal cycling',anchoring:'Anchoring',anthropogenic:'Human noise'}
 const colours:Record<string,string>={visual:'#2563eb',lithology:'#b45309',temperature:'#dc2626',slope:'#0f766e',wind:'#7c3aed',geometry:'#0f766e',seismic:'#7c3aed',thermal:'#dc2626',anchoring:'#b45309',anthropogenic:'#475569'}
@@ -12,10 +13,11 @@ const score=(c:Candidate)=>c.final_score??c.composite
 function breakdown(c:Candidate){
  const entries=Object.entries(c.score_components??{})
  const denominator=entries.reduce((sum,[,p])=>sum+((p.value!=null||c.score_missing_policy==='zero_estimated')&&p.confidence>0?p.weight*p.confidence:0),0)
- const scale=c.final_score!=null?0.92:1
- return entries.map(([key,p])=>({key,label:labels[key]??key,short:shortLabels[key]??key,colour:colours[key]??'#64748b',value:p.value,available:p.value!=null&&p.confidence>0,effective:denominator&&p.value!=null?scale*p.weight*p.confidence/denominator*100:0,points:denominator&&p.value!=null?scale*p.weight*p.confidence*p.value/denominator*100:0}))
+ const scale=c.final_score!=null&&c.distance_km!=null?0.92:1
+ return entries.map(([key,p])=>({key,label:key==='wind'&&p.method==='lunar_absolute_zero_wind_v1'?'Absolute wind match to lunar zero-wind reference':labels[key]??key,short:shortLabels[key]??key,colour:colours[key]??'#64748b',value:p.value,available:p.value!=null&&p.confidence>0,effective:denominator&&p.value!=null?scale*p.weight*p.confidence/denominator*100:0,points:denominator&&p.value!=null?scale*p.weight*p.confidence*p.value/denominator*100:0}))
 }
 const rows=computed(()=>breakdown(props.candidate))
+const lunarWind=computed(()=>props.candidate.score_components?.wind?.method==='lunar_absolute_zero_wind_v1'?props.candidate.score_components.wind:null)
 const strongest=computed(()=>rows.value.filter(r=>r.available).sort((a,b)=>b.points-a.points).slice(0,2))
 const competitor=computed(()=>props.candidates.find(c=>c.region!==props.candidate.region&&(props.candidate.rank===1?c.rank===2:c.rank===1)))
 const gap=computed(()=>{const a=score(props.candidate),b=competitor.value&&score(competitor.value);return a!=null&&b!=null?(a-b)*100:null})
@@ -28,9 +30,33 @@ const drivers=computed(()=>{
  return differences.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,3)
 })
 const distancePoints=computed(()=>props.candidate.final_score!=null&&props.candidate.distance_km!=null?8*Math.max(0,1-props.candidate.distance_km/(Math.PI*6371.0088)):null)
+const fmt=(n:number|null|undefined,unit:string,digits=2)=>n!=null&&Number.isFinite(n)?`${n.toFixed(digits)} ${unit}`:'Unavailable'
+const classes=(a?:string[])=>a?.length?a.map(s=>s.replace(/_/g,' ')).join(', '):'Unavailable'
+const factorDetails=computed(()=>{
+ const q=props.targetEnvironment, e=props.candidate.earth_environment, t=props.candidate.ranking_terrain
+ const moon=props.body==='moon', crop=props.crop
+ const data:Record<string,{unit:string;inputs:string;method:string}>={
+  visual:{unit:'Cosine similarity: no physical unit (−1 to 1); factor score: 0–1',inputs:`DINOv3 cosine: ${fmt(props.candidate.cosine,'(unitless)',3)}`,method:crop?'Compare pooled cached DINOv3 patch features for equal-size surface windows using cosine similarity; min–max scale the cosine across eligible candidates. The crop features are an approximation, not a new model inference.':'Compare DINOv3 image features using cosine similarity; min–max scale the cosine across eligible candidates. A factor score of 1 means best in this pool, not identical images.'},
+  slope:{unit:'Slope p90: degrees (°); factor score: 0–1',inputs:`Planet: ${fmt(t?.query_slope_p90_deg,'°')} · Earth: ${fmt(t?.earth_slope_p90_deg,'°')}`,method:crop?'Local slope is not scored for the selected crop.':'Let q and e be the planetary and Earth slope p90 in degrees. Similarity = max(0, 1 − |e − q| / (2 × max(3°, 0.3 × q))). Both inputs require compatible local DEMs.'},
+  temperature:{unit:'Temperature midpoint: kelvin (K); day–night range: K; factor score: 0–1',inputs:`Planet: midpoint ${fmt(q?.temperature_midrange_K,'K')}, range ${fmt(q?.temperature_range_K,'K')} (${q?.temperature_provenance??'source unavailable'}) · Earth: midpoint ${fmt(e?.temperature_midrange_K,'K')}, range ${fmt(e?.temperature_range_K,'K')} (${e?.temperature_provenance??'source unavailable'})`,method:'Calculate the absolute difference for midpoint and for range. For each, scale the differences within the eligible candidate pool so the closest scores 1 and the farthest 0; average the available results. Temperatures may come from models or regional products with different methods.'},
+  wind:{unit:'Mean wind speed: metres per second (m/s); factor score: 0–1',inputs:`Planet: ${moon?'0.00 m/s (lunar atmospheric reference)':fmt(q?.wind_mean_ms,'m/s')} · Earth: ${fmt(e?.wind_mean_ms??lunarWind.value?.earth_mean_speed_ms,'m/s')}`,method:moon?'Lunar rule: similarity = 2^(−Earth mean wind speed / 0.5 m/s). The score halves for every 0.5 m/s. This is a project convention, not a physical vacuum equivalent.':'For Mars, take the absolute difference in mean wind speed and min–max scale the differences across eligible candidates: closest scores 1, farthest 0.'},
+  lithology:{unit:'Rock / mineral classes: categories; factor score: 0–1 (unitless)',inputs:`Planet: ${classes(q?.lithology)} · Earth: ${classes(e?.lithology)}`,method:'Compare each class with its best match on the other body, then average in both directions. Identical classes score 1; selected related classes receive partial credit. These categories do not measure soil hardness.'}
+ }
+ return rows.value.filter(r=>data[r.key]).map(r=>({...r,...data[r.key]}))
+})
 </script>
 <template>
- <article class="ranking-explanation">
+ <article v-if="candidate.ranking_mode" class="ranking-explanation factor-explanation">
+  <h3>#{{candidate.rank}} · {{labels[candidate.ranking_mode] ?? candidate.ranking_mode}}</h3>
+  <p><strong>{{((candidate.factor_score??0)*100).toFixed(1)}} / 100</strong> · single-factor similarity, not a probability.</p>
+  <p>Only this factor determines the order. Existing acceptance, country/continent and applicable low-Sun screens still apply. Distance and the other factor weights do not contribute.</p>
+  <div v-for="factor in factorDetails.filter(r=>r.key===candidate.ranking_mode)" :key="factor.key" class="re-unit-item">
+   <p><b>Units:</b> {{factor.unit}}</p><p><b>Inputs:</b> {{factor.inputs}}</p><p><b>Similarity:</b> {{factor.method}}</p>
+  </div>
+  <p v-if="candidate.ranking_mode==='visual'">Raw cosine breaks ties between rounded image-factor scores; remaining ties use site ID.</p>
+  <p>Overall remains available from Rank by → Overall (original formula).</p>
+ </article>
+ <article v-else class="ranking-explanation">
   <header class="re-head">
    <div class="re-score" v-if="score(candidate)!=null"><b>{{((score(candidate)??0)*100).toFixed(1)}}</b><span>/ 100</span></div>
    <div>
@@ -48,12 +74,23 @@ const distancePoints=computed(()=>props.candidate.final_score!=null&&props.candi
     <li v-for="r in rows" :key="r.key" :class="{missing:!r.available}">
      <i :style="{background:r.colour}"></i>
      <span class="re-name" :title="r.label">{{r.short}}</span>
-     <span class="re-meter"><b v-if="r.available && r.value!=null" :style="{width:Math.max(2,r.value*100)+'%',background:r.colour}"></b></span>
+     <span class="re-meter"><b v-if="r.available && r.value!=null" :style="{width:Math.max(0,r.value*100)+'%',background:r.colour}"></b></span>
      <em>{{r.available?r.points.toFixed(1)+' pts':'no data'}}</em>
     </li>
     <li v-if="distancePoints!=null"><i class="re-distance"></i><span class="re-name">Distance</span><span class="re-meter"><b class="re-distance" :style="{width:(distancePoints/8*100)+'%'}"></b></span><em>{{distancePoints.toFixed(1)}} pts</em></li>
    </ul>
    <p class="re-hint">Bar length = how well this site matches on that factor (0–1). Points = its share of the total score.</p>
+   <p v-if="lunarWind" class="re-hint">The Moon has no atmospheric wind (0 m/s). Earth regional mean: {{lunarWind.earth_mean_speed_ms??'not available'}} m/s. Wind match uses an absolute decay, halving every {{lunarWind.half_score_speed_ms}} m/s; it is not normalized to the best candidate. This is a project screening rule; calm air does not reproduce lunar vacuum.</p>
+   <section v-if="factorDetails.length" class="re-units" aria-label="Factor units and similarity calculations">
+    <h4>Factor units and similarity</h4>
+    <p>Factor similarities are unitless, from 0 to 1. Points below are weighted contributions to the total, not physical units or probabilities.</p>
+    <div v-for="factor in factorDetails" :key="factor.key" class="re-unit-item">
+     <strong>{{factor.short}}</strong><span class="re-unit-score">{{factor.available && factor.value!=null ? `${factor.value.toFixed(3)} / 1 · ${factor.points.toFixed(1)} pts` : 'Not scored: no data'}}</span>
+     <p><b>Units:</b> {{factor.unit}}</p><p><b>Inputs:</b> {{factor.inputs}}</p><p><b>Similarity:</b> {{factor.method}}</p>
+    </div>
+    <div v-if="distancePoints!=null" class="re-unit-item"><strong>Distance</strong><span class="re-unit-score">{{distancePoints.toFixed(1)}} pts</span><p><b>Unit:</b> kilometres (km), great-circle distance. <b>Input:</b> {{fmt(candidate.distance_km,'km',1)}}.</p><p><b>Contribution:</b> 8 × max(0, 1 − distance / 20,015 km) points. The remaining 92 points come from the weighted factor score.</p></div>
+    <p>Weighted factor score = Σ(weight × confidence × similarity) / Σ(weight × confidence), using the result's missing-data policy. Similarity scores are not measured quantities, and displayed components may be rounded.</p>
+   </section>
    <div v-if="competitor && drivers.length" class="re-drivers">
     <span>Against #{{competitor.rank}}:</span>
     <b v-for="d in drivers" :key="d.label" :class="d.delta>=0?'up':'down'">{{driverName(d.label)}} {{d.delta>=0?'+':'−'}}{{Math.abs(d.delta).toFixed(1)}}</b>
@@ -89,6 +126,7 @@ const distancePoints=computed(()=>props.candidate.final_score!=null&&props.candi
 .re-meter{height:8px;border-radius:4px;background:#f1f5f9;overflow:hidden}.re-meter b{display:block;height:100%;border-radius:4px}
 .re-factors em{font-style:normal;text-align:right;color:#334155;font-variant-numeric:tabular-nums}
 .re-hint{margin:8px 0 0;font-size:12.5px;color:#64748b}
+.re-units{margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:13px;color:#334155}.re-units h4{margin:0;font-size:15px;color:#0f172a}.re-units>p{margin:6px 0}.re-unit-item{padding:10px 0;border-bottom:1px solid #e2e8f0}.re-unit-item>strong{color:#0f172a}.re-unit-score{float:right;font-variant-numeric:tabular-nums}.re-unit-item p{margin:4px 0;overflow-wrap:anywhere}
 .re-drivers{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:13px;color:#475569}
 .re-drivers b{padding:3px 8px;border-radius:999px;font-weight:600}.re-drivers .up{background:#dcfce7;color:#166534}.re-drivers .down{background:#fee2e2;color:#991b1b}
 .re-more{margin-top:12px;font-size:13px}.re-more summary{cursor:pointer;color:#334155;font-weight:600}.re-more p{font-size:13px}

@@ -9,6 +9,7 @@ import RoiThermalVisual from './RoiThermalVisual.vue'
 import ReliefPair from './ReliefPair.vue'
 import LunarLightingPanel from './LunarLightingPanel.vue'
 import BaseCavePanel from './BaseCavePanel.vue'
+import NearbyCaveSuggestion from './NearbyCaveSuggestion.vue'
 import { createCelestialBackdrop } from '../skyView'
 import { lightingDate, type LightingPlan, type LightingSchedule } from '../lightingPlan'
 import { cityForSetup, missionCities, type MissionSetup } from '../missionSetup'
@@ -114,7 +115,7 @@ const earthMatched = ref(false)
 const menu = ref<'' | 'options' | 'tools' | 'export'>('')
 const matchedStatus = ref('')
 const statusClass = (st?: string) => (st === 'ACCEPTED' || st === 'PLAUSIBLE_CANDIDATE' ? 'ok' : st === 'REJECTED' ? 'bad' : 'mid')
-const statusText = (st?: string) => ({ ACCEPTED: 'Accepted', PLAUSIBLE_CANDIDATE: 'plausible', REJECTED: 'rejected', INSUFFICIENT_EVIDENCE: 'insufficient evidence' } as Record<string, string>)[st ?? ''] ?? 'unrated'
+const statusText = (st?: string) => ({ ACCEPTED: 'Accepted', HISTORICAL_REFERENCE: 'Documented reference', PLAUSIBLE_CANDIDATE: 'plausible', REJECTED: 'rejected', INSUFFICIENT_EVIDENCE: 'insufficient evidence' } as Record<string, string>)[st ?? ''] ?? 'unrated'
 const showHelp = ref(true)
 try { showHelp.value = localStorage.getItem('tt_help_seen') !== '1' } catch { /* storage blocked: keep the hint visible */ }
 function closeHelp() { showHelp.value = false; try { localStorage.setItem('tt_help_seen', '1') } catch { /* ignore */ } }
@@ -126,7 +127,7 @@ function closeMenuOnOutsideClick(event: PointerEvent) {
 function downloadJson() {
   const q = currentQuery()
   if (!q) return
-  const blob = new Blob([JSON.stringify({ note: 'Unverified model opinions plus measurements, not geological ground truth.', run: runId.value, setup: { ...props.setup, origin: originCity.value }, query: cropSearchResult.value ? { info: q.info, candidates: candidates.value, crop_search: cropSearchResult.value } : q }, null, 1)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify({ note: 'Algorithm scores are screening estimates. A historical_reference is explicitly inserted from documentary evidence, not independently recovered by the model.', run: runId.value, setup: { ...props.setup, origin: originCity.value }, query: { ...q, candidates: candidates.value, crop_search: cropSearchResult.value, lighting_plan: lightingPlan.value } }, null, 1)], { type: 'application/json' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = `terratwinn_${q.info.query_id}.json`; a.click()
   URL.revokeObjectURL(a.href); menu.value = ''
@@ -180,6 +181,10 @@ interface TerrainStats {
   source: string; source_url: string; provenance?: string; note?: string;
 }
 interface Cand { breaks_down?: string; rank: number; region: string; region_name?: string; admin1?: string; country?: string; field_test?: { decision: string; reasons: string[] }; lat?: number; lon?: number; vote?: string; agreement?: number; status?: string;
+  factor_score?: number; ranking_mode?: string;
+  selection_role?: string;
+  historical_test?: { name: string; task: string; date: string; claim: string; coordinate_status: string; coordinate_source: string; sources: {title:string;url:string}[] };
+  earth_window?: { box_percent: number[]; size_m: number[]; windows_compared: number };
   lighting?: LightingSchedule;
   earth_slope_p90_deg?: number; cosine: number | null; reasoning?: { composite: number | null; reason: string };
   optical_context?: { image_url: string; source: string; gsd_m: number; footprint_m: number };
@@ -190,7 +195,7 @@ interface Cand { breaks_down?: string; rank: number; region: string; region_name
   distance_km?: number | null; roughness?: { native_metrics?: TerrainStats; comparison?: TerrainStats; available: boolean; roughness_rms_m: number; posting_m: number; sampled_width_m: number; source: string; source_url: string };
   earth_terrain?: { slope_p90?: number; baseline_m?: number };
   score_components?: Record<string, { value: number | null; weight: number; confidence: number }> }
-interface Query { info: { query_id: string; name?: string; lat: number; lon_east: number; product?: string; slope_p90_deg?: number; image_available?: boolean; image_note?: string }; candidates: Cand[] }
+interface Query { factor_selection?: {label:string;eligible_count:number;missing_count:number}; historical_reference_status?: { message: string }; selection_policy?: string; info: { query_id: string; name?: string; lat: number; lon_east: number; product?: string; slope_p90_deg?: number; image_available?: boolean; image_note?: string }; candidates: Cand[] }
 const queries = ref<Query[]>([])
 const selectedQuery = ref<string>('')
 const siteSearch = ref('')
@@ -330,6 +335,7 @@ const earthInspectorTab = ref<'overview' | 'compare' | 'lighting' | 'terrain' | 
 const selectedCandidate = computed(() => candidates.value[selectedCandidateIndex.value])
 const isLunarLanding = computed(() => currentPlanet.value === 'moon' && props.setup.mission === 'crewed_lander')
 const isBaseMission = computed(() => props.setup.mission === 'surface_base')
+const supportsLunarLighting = computed(() => currentPlanet.value === 'moon' && (isLunarLanding.value || isBaseMission.value))
 const showCaveRecommendations = ref(false)
 watch([selectedQuery, currentPlanet], () => { showCaveRecommendations.value = false })
 const lightingPlan = ref<LightingPlan | null>(null)
@@ -342,7 +348,7 @@ let lightingRequest = 0
 watch([selectedQuery, currentPlanet], () => { lightingRequest++; lightingBusy.value = false; lightingPlan.value = null; lightingError.value = ''; lunarReferenceTime.value = ''; showLightingControls.value = false })
 async function searchLighting(value = { lunarTime: lunarReferenceTime.value, startDate: earthSearchStart.value }) {
   const q = currentQuery()
-  if (!q || !isLunarLanding.value) return
+  if (!q || !supportsLunarLighting.value) return
   const request = ++lightingRequest
   lightingBusy.value = true; lightingError.value = ''; resultsRequested.value = true
   candidates.value = []; earthMatched.value = false; showRightInfo.value = false
@@ -351,6 +357,9 @@ async function searchLighting(value = { lunarTime: lunarReferenceTime.value, sta
   const params = new URLSearchParams({ query_id: q.info.query_id, start_date: value.startDate, user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon) })
   params.set('country', activeRegion.value.country)
   params.set('continent', activeRegion.value.continent)
+  params.set('include_history',String(includeHistory.value))
+  params.set('origin_country',originCity.value.country_code)
+  if (activeRankingMode.value !== 'overall') params.set('ranking_mode',activeRankingMode.value)
   if (value.lunarTime) params.set('lunar_time', value.lunarTime.slice(0,16) + ':00Z')
   try {
     const response = await fetch('/api/analogs/lighting/plan?' + params)
@@ -359,12 +368,12 @@ async function searchLighting(value = { lunarTime: lunarReferenceTime.value, sta
     if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Lighting planning failed')
     lightingPlan.value = data
     lunarReferenceTime.value = data.target.time_utc.slice(0,16)
-    candidates.value = data.candidates.filter((c: Cand) => c.field_test?.decision === 'ACCEPTED' && c.lighting?.windows.length)
+    candidates.value = data.candidates.filter((c: Cand) => c.selection_role === 'historical_reference' || (c.field_test?.decision === 'ACCEPTED' && c.lighting?.windows.length))
   } catch (error) {
     if (request === lightingRequest) lightingError.value = error instanceof Error ? error.message : 'Lighting planning failed'
   } finally { if (request === lightingRequest) lightingBusy.value = false }
 }
-function openEarthInspector() { if (selectedCandidate.value) { earthInspectorTab.value = 'overview'; earthInspectorOpen.value = true } }
+function openEarthInspector() { if (selectedCandidate.value) { detailedInspection.value = true; earthInspectorTab.value = 'overview'; earthInspectorOpen.value = true } }
 function closeEarthInspector() { earthInspectorOpen.value = false }
 watch([selectedQuery, currentPlanet], () => { earthInspectorOpen.value = false })
 const runId = ref('')
@@ -402,16 +411,25 @@ const ratingSummary = computed<RatingSummary>(() => ratings.value ?? validation.
 const raterRows = computed(() => Object.entries(ratingSummary.value.per_rater ?? {}).map(([name, v], k) => ({ name, label: `Rater ${k + 1}`, ...v })))
 const isMars = computed(() => !!currentQuery())   // a real analog run exists for the current planet
 const imgUrl = (name: string) => `/api/analogs/${runId.value}/img/${selectedQuery.value}_${name}.png`
-const rankingScore = (c: Cand) => c.final_score ?? c.composite
+const rankingScore = (c: Cand) => c.factor_score ?? c.final_score ?? c.composite
 const scoreText = (c: Cand) => rankingScore(c) != null ? `${(rankingScore(c)! * 100).toFixed(1)}/100` : null
 const candidateStyle = (c: Cand, index: number) => {
   const image = c.image_url ?? (c.image ? `/api/analogs/${runId.value}/img/${c.image}` : null)
+  if(c.selection_role==='historical_reference'&&!image)return {backgroundImage:'none'}
   return image ? { backgroundImage: `url(${image})`, backgroundPosition: 'center', backgroundSize: isIlilaRun.value ? 'contain' : 'cover' }
     : { backgroundImage: `url(${imgUrl('top5')})`, backgroundPosition: `${(index + 1) * 20}% 0` }
 }
 const candidateSlope = (c: Cand) => c.earth_slope_p90_deg ?? c.earth_terrain?.slope_p90
 const componentNames: Record<string, string> = { visual: 'Image', lithology: 'Rock / mineral', temperature: 'Temperature', slope: 'Slope p90', wind: 'Mean wind', geometry: 'iLILA geometry', seismic: 'Seismic noise (Earth NLNM/NHNM reference)', thermal: 'Thermal cycling', anchoring: 'Anchoring', anthropogenic: 'Human noise' }
 const regionCountry = ref('')
+const rankingModes = [{value:'overall',label:'Overall (original formula)'},{value:'visual',label:'Visual terrain similarity'},{value:'slope',label:'Terrain slope similarity'},{value:'temperature',label:'Temperature similarity'},{value:'lithology',label:'Rock / mineral class similarity'},{value:'wind',label:'Wind similarity'}]
+const rankingMode = ref('overall')
+const activeRankingMode = ref('overall')
+const activeRankingLabel = computed(()=>rankingModes.find(m=>m.value===activeRankingMode.value)?.label ?? 'Overall')
+const factorSelection = computed(()=>isIlilaRun.value ? null : (lightingPlan.value as any)?.factor_selection ?? (cropSearchResult.value as any)?.factor_selection ?? currentQuery()?.factor_selection)
+const includeHistory = ref(false)
+const acceptedOrReference = (c: Cand) => c.field_test?.decision === 'ACCEPTED' || c.selection_role === 'historical_reference'
+const hasHistoricalReference = computed(() => candidates.value.some(c=>c.selection_role==='historical_reference'))
 const regionContinent = ref('')
 const regionBusy = ref(false)
 const regionError = ref('')
@@ -426,6 +444,8 @@ async function applyRegionFilter() {
   if (regionBusy.value || cropSearchBusy.value || lightingBusy.value) return
   regionBusy.value = true; regionError.value = ''
   activeRegion.value = { country: regionCountry.value, continent: regionContinent.value }
+  if (activeRankingMode.value !== rankingMode.value) showRightInfo.value = false
+  activeRankingMode.value = rankingMode.value
   const id = runId.value, queryId = selectedQuery.value
   const submittedCrop = cropSearchResult.value?.box_percent
   const hadResults = resultsRequested.value
@@ -440,15 +460,17 @@ async function applyRegionFilter() {
     reports.value[currentPlanet.value] = { runId: id, queries: data }
     if (hadResults) {
       if (submittedCrop) await searchSelectedCrop({ x: submittedCrop[0]!, y: submittedCrop[1]!, width: submittedCrop[2]!, height: submittedCrop[3]! })
-      else if (isLunarLanding.value) await searchLighting()
-      else candidates.value = (currentQuery()?.candidates ?? []).filter(c => c.field_test?.decision === 'ACCEPTED' && c.lat != null && c.lon != null)
+      else if (isLunarLanding.value || (supportsLunarLighting.value && lightingPlan.value)) await searchLighting()
+      else candidates.value = (currentQuery()?.candidates ?? []).filter(c => acceptedOrReference(c) && c.lat != null && c.lon != null)
     }
   } catch (error) { regionError.value = error instanceof Error ? error.message : 'Regional search failed.' }
   finally { regionBusy.value = false }
 }
 const reportUrl = (id: string) => `/api/analogs/${id}/report?` + new URLSearchParams({
+  include_history: String(includeHistory.value), origin_country: originCity.value.country_code,
   user_lat: String(originCity.value.lat), user_lon: String(originCity.value.lon), mission_type: props.setup.mission,
   ...(id.endsWith('_global') ? regionScope() : {}),
+  ...(id.endsWith('_global') && !id.startsWith('moon_judge_ilila_') && activeRankingMode.value !== 'overall' ? {ranking_mode:activeRankingMode.value} : {}),
 })
 const themis = computed(() => (currentQuery()?.info as any)?.thermal_inertia_themis ?? null)
 const measurements = computed(() => (currentQuery()?.info as any)?.measurements ?? null)
@@ -572,7 +594,7 @@ function pickCandidate(c: Cand) {
   rightGlobe?.customLayerData([{ lat: c.lat, lng: c.lon, name: `#${c.rank} ${candidateName(c)}` }])
   rightGlobe?.pointOfView({ lat: c.lat, lng: c.lon, altitude: 0.15 }, 1000)
   matchedAnalog.value = {
-    name: `#${c.rank} ${candidateName(c)}`, region: 'Passed the field-test screen',
+    name: `#${c.rank} ${candidateName(c)}`, region: c.selection_role === 'historical_reference' ? 'Documented historical use; current access and suitability unverified' : 'Passed the field-test screen',
     lat: c.lat, lng: c.lon,
     matchScore: scoreText(c) ?? (c.reasoning?.composite != null ? `${Math.round(c.reasoning.composite * 100)}%` : '–'),
     slope: candidateSlope(c) != null ? `p90 ${candidateSlope(c)!.toFixed(2)}°` : 'n/a',
@@ -752,6 +774,18 @@ function initLeftGlobe() {
 }
 
 const earthTileUrl = (x: number, y: number, level: number) => `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${level}/${y}/${x}`
+function updateEarthDepthPrecision(globe: GlobeInstance) {
+  const camera = globe.camera() as PerspectiveCamera
+  const clearance = Math.max(0, camera.position.length() - globe.getGlobeRadius())
+  // A permanently tiny near plane loses depth precision at orbit distance:
+  // rear borders close to the limb then pass the surface depth test.
+  // Keep the plane well before the ground, including at street-level zoom.
+  const near = Math.max(0.00001, Math.min(10, clearance * 0.1))
+  if (camera.near !== near) {
+    camera.near = near
+    camera.updateProjectionMatrix()
+  }
+}
 function enableEarthTiles(globe: GlobeInstance) {
   const probe = new Image()
   probe.crossOrigin = 'anonymous'
@@ -832,10 +866,7 @@ function initRightGlobe() {
   addSparseStars(rightGlobe)
   skyControllers.right=createCelestialBackdrop(THREE,rightGlobe,false,BASE)
   controls.minDistance = rightGlobe.getGlobeRadius() * 1.00002
-  // Close city views must not clip the surface with the default near plane.
-  const earthCamera = rightGlobe.camera() as PerspectiveCamera
-  earthCamera.near = 0.0001
-  earthCamera.updateProjectionMatrix()
+  updateEarthDepthPrecision(rightGlobe)
   controls.addEventListener('change', scheduleCountryLabels)
   if (controls) {
     controls.autoRotate = false
@@ -845,9 +876,11 @@ function initRightGlobe() {
 
   // Focus Earth initially on Western Hemisphere
   rightGlobe.pointOfView({ lat: 20, lng: -100, altitude: 2.2 })
+  updateEarthDepthPrecision(rightGlobe)
   rightGlobe.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5))
   // Tint blue/cyan water pixels only; keep the original detail and land colors.
   rightGlobe.scene().onBeforeRender = () => {
+    if (rightGlobe) updateEarthDepthPrecision(rightGlobe)
     rightGlobe?.scene().traverse((object: any) => {
       const material = object.material
       if (!material?.isMeshLambertMaterial || !material.map) return
@@ -897,6 +930,7 @@ const shortCountryNames: Record<string, string> = {
   SGS: 'South Georgia Islands', ATF: 'French Southern Lands',
 }
 function scheduleCountryLabels() {
+  if (rightGlobe) updateEarthDepthPrecision(rightGlobe)
   if (countryFrame) return
   countryFrame = requestAnimationFrame(() => {
     countryFrame = 0
@@ -969,8 +1003,50 @@ const cropFrame = ref<HTMLElement | null>(null)
 const crop = ref({ x: 25, y: 25, width: 50, height: 50 })
 const cropSearchBusy = ref(false)
 const cropSearchError = ref('')
-const cropSearchResult = ref<{ image_url: string; size_m: number[]; note: string; box_percent: number[] } | null>(null)
+const cropSearchResult = ref<{ image_url: string; size_m: number[]; note: string; box_percent: number[]; pixel_bounds?: number[]; original_pixels?: number[] } | null>(null)
 const cropSearchSupported = computed(() => ['moon_judge_colab_env_global', 'mars_judge_colab_env_global'].includes(runId.value))
+interface InspectionImage { available: boolean; image_url?: string; source?: string; source_url?: string; pixels?: number[]; credit?: string; note?: string; quality_warning?: string }
+const detailedInspection = ref(true)
+const inspectionEarth = ref<InspectionImage | null>(null)
+const inspectionPlanet = ref<InspectionImage | null>(null)
+const inspectionBusy = ref(false)
+let inspectionRequest = 0
+watch([earthInspectorOpen, selectedCandidate, selectedQuery, currentPlanet], async () => {
+  const request = ++inspectionRequest
+  inspectionEarth.value = null; inspectionPlanet.value = null
+  inspectionBusy.value = false
+  if (!earthInspectorOpen.value || !selectedCandidate.value || isIlilaRun.value || selectedCandidate.value.selection_role === 'historical_reference') return
+  detailedInspection.value = true
+  inspectionBusy.value = true
+  const fetchImage = async (body: string, id: string): Promise<InspectionImage> => {
+    try { const response = await fetch(`/api/analogs/detail/${body}/${encodeURIComponent(id)}`); return response.ok ? await response.json() : { available: false } }
+    catch { return { available: false } }
+  }
+  const [earth, planet] = await Promise.all([fetchImage('earth', selectedCandidate.value.region), fetchImage(currentPlanet.value, selectedQuery.value)])
+  if (request !== inspectionRequest) return
+  inspectionEarth.value = earth; inspectionPlanet.value = planet; inspectionBusy.value = false
+})
+function detailedWindowUrl(url: string, box?: number[]) {
+  return box ? url+'?'+new URLSearchParams({x:String(box[0]),y:String(box[1]),width:String(box[2]),height:String(box[3])}) : url
+}
+const inspectorPlanetImage = computed(() => {
+  const cropResult=cropSearchResult.value
+  if (detailedInspection.value && inspectionPlanet.value?.available && inspectionPlanet.value.image_url) {
+    const bounds=cropResult?.pixel_bounds, size=cropResult?.original_pixels
+    const box=bounds&&size ? [bounds[0]!/size[0]!*100,bounds[1]!/size[1]!*100,(bounds[2]!-bounds[0]!)/size[0]!*100,(bounds[3]!-bounds[1]!)/size[1]!*100] : cropResult?.box_percent
+    return detailedWindowUrl(inspectionPlanet.value.image_url,box)
+  }
+  return cropResult?.image_url ?? imgUrl('query')
+})
+const inspectorEarthStyle = computed(() => {
+  if (detailedInspection.value && inspectionEarth.value?.available) {
+    const box=selectedCandidate.value?.earth_window?.box_percent
+    const url=detailedWindowUrl(inspectionEarth.value.image_url!,box)
+    return { backgroundImage: `url(${url})`, backgroundPosition: 'center', backgroundSize: 'contain', backgroundRepeat: 'no-repeat' }
+  }
+  return selectedCandidate.value ? candidateStyle(selectedCandidate.value, selectedCandidateIndex.value) : {}
+})
+const inspectorEarthFootprint = computed(() => selectedCandidate.value?.earth_window ? selectedCandidate.value.earth_window.size_m.map(v=>v.toFixed(1)).join(' × ')+' m matched window' : '250 m ROI')
 const canExport = computed(() => !!selectedQuery.value && resultsRequested.value && candidates.value.length > 0 && !cropSearchBusy.value && !lightingBusy.value && !regionBusy.value)
 watch(canExport, available => { if (!available && menu.value === 'export') menu.value = '' })
 async function searchSelectedCrop(box = crop.value) {
@@ -980,13 +1056,13 @@ async function searchSelectedCrop(box = crop.value) {
   try {
     const response = await fetch(`/api/analogs/${sourceRun}/crop-search`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query_id: queryId, ...box, ...regionScope(), user_lat: originCity.value.lat, user_lon: originCity.value.lon }),
+      body: JSON.stringify({ query_id: queryId, ...box, ...regionScope(), ...(activeRankingMode.value !== 'overall' ? {ranking_mode:activeRankingMode.value} : {}), include_history: includeHistory.value, origin_country: originCity.value.country_code, user_lat: originCity.value.lat, user_lon: originCity.value.lon }),
     })
     const data = await response.json()
     if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Crop search failed.')
     if (queryId !== selectedQuery.value || sourceRun !== runId.value) return
     candidates.value = data.candidates
-    cropSearchResult.value = data.crop_search
+    cropSearchResult.value = data.factor_selection ? {...data.crop_search,factor_selection:data.factor_selection} : data.crop_search
     resultsRequested.value = true; resultsHidden.value = false
     earthInspectorOpen.value = false; earthMatched.value = false; showRightInfo.value = false
     rightGlobe?.customLayerData([])
@@ -1093,8 +1169,7 @@ async function findTerrestrialAnalogs() {
   resultsHidden.value = false
   resultsRequested.value = true
   if (isLunarLanding.value && !isIlilaRun.value) { await searchLighting(); return }
-  candidates.value = q.candidates.filter((c) => (isIlilaRun.value || c.field_test?.decision === 'ACCEPTED') && c.lat != null && c.lon != null)
-  if (isBaseMission.value) showCaveRecommendations.value = true
+  candidates.value = q.candidates.filter((c) => (isIlilaRun.value || acceptedOrReference(c)) && c.lat != null && c.lon != null)
   rightGlobe?.customLayerData([])
   earthMatched.value = false
   showRightInfo.value = false
@@ -1155,7 +1230,7 @@ onBeforeUnmount(() => {
         </button>
         <div v-if="menu === 'export'" class="menu-panel menu-panel-right">
           <button class="menu-link" :disabled="!selectedQuery" @click="downloadJson">Download this site's report (JSON)</button>
-          <a v-if="queries.length && candidates.length && !isIlilaRun && !cropSearchResult" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
+          <a v-if="activeRankingMode === 'overall' && queries.length && candidates.length && !hasHistoricalReference && !isIlilaRun && !cropSearchResult && currentPlanet !== 'moon'" class="menu-link" :href="imgUrl('top5')" :download="`${selectedQuery}_top5.png`">Download Top-5 image (PNG)</a>
         </div>
       </div>
     </header>
@@ -1329,7 +1404,7 @@ onBeforeUnmount(() => {
               <div class="transect-header">
                 <div class="transect-title">
                   <strong>Measured evidence</strong>
-                  <p class="evidence-description">{{ cropSearchResult ? 'Results use the submitted crop and regional context. Terrain measurements below describe the original ROI, not the crop.' : 'Full-ROI search uses the original image. Use Search selected crop to run the model on your selection.' }}</p>
+                  <p class="evidence-description">{{ cropSearchResult ? 'Cached spatial features match equal-size Earth windows. Terrain measurements below describe the original ROI, not the crop.' : 'Full-ROI search uses the original image. Search selected crop reuses cached features and scans equal-size Earth windows.' }}</p>
                 </div>
                 <div class="transect-metrics">
                   <span class="metric-item">Slope: <strong>{{ targetInfo.slope }}</strong></span>
@@ -1343,8 +1418,8 @@ onBeforeUnmount(() => {
                 <span>Explore sourced lava-tube training sites, including C7 in Krong No, Vietnam. These suggestions complement your surface candidates.</span>
                 <button @click="showCaveRecommendations = true">Caves & lava tubes</button>
               </div>
-              <div v-if="isLunarLanding" class="lighting-planner-summary">
-                <strong>Low-Sun landing-module tests</strong>
+              <div v-if="supportsLunarLighting" class="lighting-planner-summary">
+                <strong>{{isBaseMission ? 'Optional low-Sun base field tests' : 'Low-Sun landing-module tests'}}</strong>
                 <span v-if="lightingPlan">Lunar Sun {{lightingPlan.target.elevation_deg.toFixed(2)}}° high · {{lightingPlan.target.azimuth_deg.toFixed(2)}}° azimuth. Matching Earth dates appear in each result.</span>
                 <span v-else>Find accepted Earth sites with matching low-Sun test windows over the next 365 days.</span>
                 <button @click="showLightingControls = true">Set lunar reference & test dates</button>
@@ -1353,7 +1428,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="roi-cta-bar">
                 <button v-if="cropSearchSupported && activeRoiLayer === 'optical'" class="find-analogs-btn" :disabled="regionBusy || cropSearchBusy || lightingBusy || !queryHasImage" @click="searchSelectedCrop()">
-                  {{ cropSearchBusy ? 'Running crop model…' : 'Search selected crop' }}
+                  {{ cropSearchBusy ? 'Searching cached features…' : 'Search selected crop' }}
                 </button>
                 <button class="find-analogs-btn" :disabled="regionBusy || !!regionError || cropSearchBusy || lightingBusy || (!queryHasImage && !isIlilaRun)" @click="findTerrestrialAnalogs">
                   <span>{{lightingBusy ? 'Calculating light matches…' : 'Find Terrestrial Analogs'}}</span>
@@ -1362,7 +1437,7 @@ onBeforeUnmount(() => {
               <p v-if="cropSearchBusy" role="status">Encoding the selected pixels with DINOv3 and ranking Earth sites. First inference may take a minute.</p>
               <p v-if="cropSearchError" role="alert">{{ cropSearchError }}</p>
               <div v-if="cropSearchResult" class="crop-search-summary">
-                <img :src="cropSearchResult.image_url" alt="Exact crop used for the new model inference" style="width:80px;height:80px;object-fit:contain" />
+                <img :src="cropSearchResult.image_url" alt="Selected image region matched using cached spatial features" style="width:80px;height:80px;object-fit:contain" />
                 <span>New crop results · {{ cropSearchResult.size_m.map(v => v.toFixed(1)).join(' × ') }} m. {{ cropSearchResult.note }} Low-Sun scheduling is available through full-ROI search.</span>
               </div>
             </div>
@@ -1393,11 +1468,13 @@ onBeforeUnmount(() => {
       >
         <div v-if="resultsRequested && runId.endsWith('_global')" class="region-filter">
           <div class="region-filter-fields">
+            <label v-if="!isIlilaRun">Rank by<select aria-label="Rank by" v-model="rankingMode" :disabled="regionBusy || cropSearchBusy || lightingBusy"><option v-for="mode in rankingModes" :key="mode.value" :value="mode.value">{{mode.label}}</option></select></label>
             <label>Continent<select aria-label="Continent" v-model="regionContinent" :disabled="regionBusy || cropSearchBusy || lightingBusy"><option value="">All continents</option><option v-for="(count, name) in regionGroups.continents" :key="name" :value="name">{{ name }} ({{ count }})</option></select></label>
             <label>Country<select aria-label="Country" v-model="regionCountry" :disabled="regionBusy || cropSearchBusy || lightingBusy"><option value="">All countries</option><option v-for="c in regionCountries" :key="c.country_code" :value="c.country_code">{{ c.country }} ({{ c.n_regions }})</option></select></label>
             <button :disabled="regionBusy || cropSearchBusy || lightingBusy" @click="applyRegionFilter">{{ regionBusy ? 'Searching…' : 'Apply filters' }}</button>
           </div>
           <small>Search the catalog within this region. Choose All to search globally.</small>
+          <small v-if="factorSelection">{{activeRankingLabel}} only · {{factorSelection.eligible_count}} screened sites with data; {{factorSelection.missing_count}} excluded for missing data. Distance and other factors do not affect this order.</small>
           <p v-if="regionError" role="alert">{{ regionError }}</p>
         </div>
         <!-- Right Header Controls -->
@@ -1412,20 +1489,23 @@ onBeforeUnmount(() => {
         <!-- Top-5 candidate cards -->
 
         <a class="earth-imagery-credit" href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener noreferrer">Imagery © Esri, Maxar, Earthstar Geographics & GIS User Community</a>
-        <p v-if="cropSearchResult && candidates.length" class="screen-caption">Results from the submitted crop · fresh DINOv3 inference + regional context</p>
-        <p v-if="resultsRequested && !candidates.length && !regionBusy && !regionError && !cropSearchBusy && !lightingBusy && !lightingError" class="no-accepted-results">{{isLunarLanding ? 'No accepted sites in this region have a matching low-Sun window. Try another region or reference time.' : 'No accepted candidates in this region. Choose another country or continent, or select All and apply filters.'}}</p>
+        <p v-if="cropSearchResult && candidates.length" class="screen-caption">Cached spatial features · equal-size Earth windows · regional context</p>
+        <p v-if="resultsRequested && !candidates.length && !regionBusy && !regionError && !cropSearchBusy && !lightingBusy && !lightingError" class="no-accepted-results">{{activeRankingMode !== 'overall' && !isIlilaRun ? 'No screened sites have usable data for this factor in the selected region and search. Try Overall or another factor.' + (cropSearchResult && activeRankingMode === 'slope' ? ' Local crop slope is unavailable.' : '') : isLunarLanding ? 'No accepted sites in this region have a matching low-Sun window. Try another region or reference time.' : 'No accepted candidates in this region. Choose another country or continent, or select All and apply filters.'}}</p>
         <div v-if="candidates.length" class="results-drawer" :class="{ 'is-hidden': resultsHidden }">
           <button class="results-toggle" :aria-expanded="!resultsHidden" :aria-label="resultsHidden ? 'Show candidates' : 'Hide candidates'" @click="resultsHidden = !resultsHidden">{{ resultsHidden ? '‹' : '›' }}</button>
           <div class="cand-list" aria-label="Top-5 Earth candidates" :inert="resultsHidden">
-          <p class="screen-caption">{{ isIlilaRun ? 'Preliminary iLILA candidates. Local noise and construction suitability remain unverified.' : 'Accepted by the field-test screen. Landing safety has not been assessed.' }}</p>
+          <p class="screen-caption">{{ hasHistoricalReference ? 'Up to 4 algorithm-ranked candidates + 1 documented reference. The reference is not an AI-ranked discovery; scores are unchanged.' : isIlilaRun ? 'Preliminary iLILA candidates. Local noise and construction suitability remain unverified.' : 'Accepted by the field-test screen. Landing safety has not been assessed.' }}</p>
           <button v-for="c in candidates" :key="c.rank" class="cand-card" :class="{ sel: earthMatched && matchedAnalog.name.startsWith('#' + c.rank + ' ') }" @click="pickCandidate(c)">
             <span class="cand-main">
               <span class="candidate-card-top">
-                <span class="candidate-ranking-score" aria-label="Ranking score"><strong>{{ rankingScore(c) != null ? (rankingScore(c)! * 100).toFixed(1) : '—' }}</strong><span>/100</span></span>
+                <span v-if="c.selection_role === 'historical_reference'" class="candidate-reference-label">Historical reference</span>
+                <span v-else class="candidate-ranking-score" aria-label="Ranking score"><strong>{{ rankingScore(c) != null ? (rankingScore(c)! * 100).toFixed(1) : '—' }}</strong><span>/100</span></span>
                 <span class="chip" :class="statusClass(c.field_test?.decision)" title="Field-test screening result; landing safety has not been assessed.">{{ statusText(c.field_test?.decision) }}</span>
               </span>
-              <b class="candidate-place-name">#{{ c.rank }} {{ candidateName(c) }}</b>
+              <b class="candidate-place-name">{{ c.selection_role === 'historical_reference' ? 'Reference ·' : `#${c.rank}` }} {{ candidateName(c) }}</b>
+              <small v-if="c.historical_test">{{ c.historical_test.task }} · {{ c.historical_test.date }} · not scored</small>
               <small class="candidate-place-location">{{ candidateLocation(c) }}</small>
+              <small v-if="c.ranking_mode">{{activeRankingLabel}} · factor score /100</small>
               <small class="candidate-origin-distance">{{ c.distance_km != null ? Math.round(c.distance_km).toLocaleString('en-US') + ' km from ' + originCity.name : 'Distance unavailable' }}</small>
               <small v-if="c.lighting?.windows[0]" class="candidate-light-window"><strong>Next light match</strong> {{lightingDate(c.lighting.windows[0].start_local)}} – {{c.lighting.windows[0].start_local.slice(0,10)===c.lighting.windows[0].end_local.slice(0,10)?c.lighting.windows[0].end_local.slice(11,16):lightingDate(c.lighting.windows[0].end_local)}}<span>{{c.lighting.windows[0].timezone}} · {{c.lighting.windows[0].duration_minutes}} min</span></small>
             </span>
@@ -1441,7 +1521,7 @@ onBeforeUnmount(() => {
             <div class="popover-line">Lat <strong>{{ matchedAnalog.lat }}</strong></div>
             <div class="popover-title"><strong>{{ matchedAnalog.name }}</strong></div>
             <div class="popover-meta">{{ statusText(matchedStatus) }}</div>
-            <div class="analog-match-badge-wrap">
+            <div v-if="!selectedCandidate?.historical_test" class="analog-match-badge-wrap">
               <span class="analog-score-pill" :class="statusClass(matchedStatus)" title="Uncalibrated heuristic; not a probability of a true analog.">{{ selectedCandidate && rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence score' }} {{ matchedAnalog.matchScore }}</span>
             </div>
             <button v-if="selectedCandidateIndex >= 0" class="earth-preview earth-preview-button" :aria-label="`Inspect ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}" @click="openEarthInspector"><span>Inspect candidate</span></button>
@@ -1477,30 +1557,47 @@ onBeforeUnmount(() => {
           <div v-if="earthInspectorOpen && selectedCandidate" class="earth-inspector">
             <header class="earth-inspector-header">
               <button class="earth-back" @click="closeEarthInspector"><img :src="PLANET_TEXTURES.earth.globe" alt="" draggable="false" /> Back</button>
-              <div><strong>{{ matchedAnalog.name.replace(/_/g, ' ') }}</strong><span class="earth-inspector-status" :class="statusClass(matchedStatus)">{{ statusText(matchedStatus) }}</span></div>
+              <div><strong>{{ selectedCandidate?.historical_test ? 'Reference · ' + candidateName(selectedCandidate) : matchedAnalog.name.replace(/_/g, ' ') }}</strong><span class="earth-inspector-status" :class="statusClass(matchedStatus)">{{ statusText(matchedStatus) }}</span></div>
             </header>
             <div class="earth-inspector-content">
               <p v-if="runId === 'moon_judge_ilila_testbed'" class="earth-context">Legacy report: seismic reference interpolation and relative geometry scores are outdated. Use the corrected expanded iLILA run.</p>
               <p v-if="isIlilaRun" class="earth-context">Preliminary iLILA testbed screening. Profile plots are not photographs. No image similarity or construction suitability has been established.</p>
+              <div v-if="!isIlilaRun" class="inspection-imagery-controls">
+                <button :class="{ active: detailedInspection }" @click="detailedInspection = true">Detailed imagery</button>
+                <button :class="{ active: !detailedInspection }" @click="detailedInspection = false">Model input</button>
+                <span v-if="inspectionBusy" role="status">Loading original source detail…</span>
+                <span v-else-if="detailedInspection">Display imagery is separate from scoring. Unavailable detail keeps the original input.</span>
+                <span v-else>Original scoring images have limited resolution. Choose Detailed imagery for the sharpest available source.</span>
+              </div>
               <figure v-if="selectedCandidate.optical_context" class="earth-detail">
                 <img :src="selectedCandidate.optical_context.image_url" alt="Satellite optical ROI at the exact candidate coordinates" style="width: 224px; max-width: 100%" />
                 <figcaption>{{ selectedCandidate.optical_context.source }} · {{ selectedCandidate.optical_context.gsd_m }} m/pixel · {{ selectedCandidate.optical_context.footprint_m }} m footprint. Optical context for image features; separate from the iLILA engineering score.</figcaption>
               </figure>
               <div class="earth-comparison" :class="{ compact: earthInspectorTab !== 'overview', 'ilila-profiles': isIlilaRun }">
-                <figure v-if="!isIlilaRun"><img :src="cropSearchResult?.image_url ?? imgUrl('query')" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>{{ cropSearchResult ? 'Submitted crop: ' + cropSearchResult.size_m.map(v => v.toFixed(1)).join(' × ') + ' m' : 'Original ROI: ' + footprint + ' m' }}</span></figcaption></figure>
-                <figure><div class="earth-comparison-candidate" role="img" :aria-label="`Image of ${matchedAnalog.name}`" :style="selectedCandidate ? candidateStyle(selectedCandidate, selectedCandidateIndex) : {}"></div><figcaption><strong>Earth · {{ candidateName(selectedCandidate) }}</strong><span>{{ isIlilaRun ? 'Engineering profiles: two 1 km arms and station PSD' : runId.endsWith('_global') ? 'Catalog ROI: 250 m' : 'Candidate footprint: not provided' }}</span></figcaption></figure>
+                <figure v-if="!isIlilaRun"><img :src="inspectorPlanetImage" :alt="`${targetInfo.name} planetary terrain`" /><figcaption><strong>{{ currentPlanet === 'moon' ? 'Moon' : 'Mars' }} · {{ targetInfo.name }}</strong><span>{{ cropSearchResult ? (detailedInspection && inspectionPlanet?.available ? 'Detailed imagery · selected ' : 'Submitted model crop: ') + cropSearchResult.size_m.map(v => v.toFixed(1)).join(' × ') + ' m' : detailedInspection && inspectionPlanet?.available ? 'Detailed imagery · 250 m ROI' : 'Original model input · ' + footprint + ' m' }}</span><small v-if="detailedInspection && inspectionPlanet?.available">{{ inspectionPlanet.source }}</small></figcaption></figure>
+                <figure><div class="earth-comparison-candidate" role="img" :aria-label="`Image of ${matchedAnalog.name}`" :style="inspectorEarthStyle"></div><figcaption><strong>Earth · {{ candidateName(selectedCandidate) }}</strong><span>{{ selectedCandidate.historical_test ? 'Sentinel-2 reference ROI · 250 m · not a scored match' : isIlilaRun ? 'Engineering profiles: two 1 km arms and station PSD' : detailedInspection && inspectionEarth?.available ? 'Detailed imagery · ' + inspectorEarthFootprint : 'Model input · ' + inspectorEarthFootprint }}</span><small v-if="detailedInspection && inspectionEarth?.available">{{ inspectionEarth.credit }}</small></figcaption></figure>
               </div>
+              <p v-if="detailedInspection && inspectionEarth?.quality_warning" class="earth-context" role="status">{{ inspectionEarth.quality_warning }}</p>
               <nav class="earth-tabs" aria-label="Candidate information">
-                <button v-for="tab in (['overview', 'compare', 'lighting', 'terrain', 'sources'] as const)" v-show="tab !== 'lighting' || isLunarLanding" :key="tab" :class="{ active: earthInspectorTab === tab }" @click="earthInspectorTab = tab">{{ tab === 'sources' ? 'Evidence & sources' : tab === 'compare' ? 'Compare candidates' : tab === 'lighting' ? 'Light & test dates' : tab === 'terrain' ? 'Terrain' : 'Overview' }}</button>
+                <button v-for="tab in (['overview', 'compare', 'lighting', 'terrain', 'sources'] as const)" v-show="tab !== 'lighting' || supportsLunarLighting" :key="tab" :class="{ active: earthInspectorTab === tab }" @click="earthInspectorTab = tab">{{ tab === 'sources' ? 'Evidence & sources' : tab === 'compare' ? 'Compare candidates' : tab === 'lighting' ? 'Light & test dates' : tab === 'terrain' ? 'Terrain' : 'Overview' }}</button>
               </nav>
               <section v-if="earthInspectorTab === 'overview'" class="earth-detail">
                 <div class="overview-chips">
                   <span>{{ Number(selectedCandidate.lat).toFixed(4) }}°, {{ Number(selectedCandidate.lon).toFixed(4) }}°</span>
                   <span v-if="selectedCandidate.distance_km != null">{{ Math.round(selectedCandidate.distance_km).toLocaleString() }} km from {{ originCity.name }}</span>
-                  <span :class="statusClass(matchedStatus)">Field test: {{ statusText(matchedStatus) }}</span>
+                  <span :class="statusClass(matchedStatus)">{{ selectedCandidate.historical_test ? 'Evidence: ' : 'Field test: ' }}{{ statusText(matchedStatus) }}</span>
                   <button class="compare-candidates-cta" @click="earthInspectorTab = 'compare'">Compare all {{ candidates.length }} candidates</button>
                 </div>
-                <RankingExplanation :candidate="selectedCandidate" :candidates="candidates" />
+                <section v-if="selectedCandidate.historical_test" class="historical-evidence">
+                  <h2>Documented mission preparation</h2>
+                  <p>{{ selectedCandidate.historical_test.claim }}</p>
+                  <p><strong>Test:</strong> {{ selectedCandidate.historical_test.task }} · {{ selectedCandidate.historical_test.date }}</p>
+                  <p><strong>Coordinate scope:</strong> {{ selectedCandidate.historical_test.coordinate_source }}</p>
+                  <p>This modern satellite ROI represents the named region or facility. The exact historical test footprint and current research access are not verified. This reference was included by an explicit evidence rule, not by changing scores or measurements.</p>
+                  <ul><li v-for="source in selectedCandidate.historical_test.sources" :key="source.url"><a :href="source.url" target="_blank" rel="noopener">{{ source.title }}</a></li></ul>
+                </section>
+                <RankingExplanation v-else :candidate="selectedCandidate" :candidates="candidates.filter(c=>c.selection_role!=='historical_reference')" :target-environment="(currentQuery()?.info as any)?.environment" :body="currentPlanet === 'moon' ? 'moon' : 'mars'" :crop="!!cropSearchResult" />
+                <NearbyCaveSuggestion v-if="isBaseMission && selectedCandidate.lat != null && selectedCandidate.lon != null" :body="currentPlanet === 'moon' ? 'moon' : 'mars'" :query-id="selectedQuery" :lat="selectedCandidate.lat" :lon="selectedCandidate.lon" :location-name="candidateName(selectedCandidate)" />
                 <dl v-if="selectedCandidate.ilila" class="ilila-evidence">
                   <div v-if="selectedCandidate.validation_assessment"><dt>Validation assessment</dt><dd>{{ selectedCandidate.validation_assessment.replace(/_/g, ' ') }} · station proxy, not a site noise measurement</dd></div>
                   <div><dt>Sampled minimum beam clearance</dt><dd>{{ selectedCandidate.ilila.c_min_m.toFixed(2) }} m (DSM)</dd></div>
@@ -1514,7 +1611,7 @@ onBeforeUnmount(() => {
                     <div><dt>Sentinel-2 green-pixel fraction (2023)</dt><dd>{{ selectedCandidate.ilila.context_validation.sentinel2_vegetation?.green_fraction != null ? (selectedCandidate.ilila.context_validation.sentinel2_vegetation.green_fraction * 100).toFixed(1) + '%' : 'Unavailable' }} · NDVI &gt; 0.3 in median composite, not canopy cover</dd></div>
                   </template>
                 </dl>
-                <p class="earth-muted">Research candidate from images and environmental data; field-test screening does not replace a site survey.</p>
+                <p class="earth-muted">{{ selectedCandidate.historical_test ? 'Historical preparation is documented; current access and field-test suitability have not been assessed.' : 'Research candidate from images and environmental data; field-test screening does not replace a site survey.' }}</p>
               </section>
               <section v-else-if="earthInspectorTab === 'compare'" class="earth-detail">
                 <CandidateComparison :candidates="candidates" :active-region="selectedCandidate.region" :target-name="targetInfo.name" :target-terrain="terrainMeasurement?.comparison" :target-materials="(currentQuery()?.info as any)?.environment?.lithology" :target-body="currentPlanet === 'mars' ? 'mars' : 'moon'" :target-id="terrainMeasurement ? selectedQuery : undefined" />
@@ -1551,16 +1648,25 @@ onBeforeUnmount(() => {
               </section>
               <section v-else class="earth-detail">
                 <h2>Evidence & sources</h2>
+                <template v-if="selectedCandidate.historical_test">
+                  <p>This is an unscored documentary reference, not a model-ranked match. Modern Sentinel-2 imagery shows a representative 250 m region, not a verified historical test footprint.</p>
+                  <p>{{ selectedCandidate.historical_test.claim }}</p>
+                  <p>{{ selectedCandidate.historical_test.coordinate_source }}</p>
+                  <ul><li v-for="source in selectedCandidate.historical_test.sources" :key="source.url"><a :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a></li></ul>
+                </template>
+                <template v-else>
                 <p v-if="terrainMeasurement">The Terrain tab shows DEM measurements. Refreshed global rankings use slope only when both ROIs have coordinate-matched DEMs on the common 30 m grid.</p>
                 <div v-if="selectedCandidate.score_components" class="earth-table-wrap"><table><thead><tr><th>Ranking factor</th><th>Weight</th><th>Score</th><th>Confidence</th></tr></thead><tbody><tr v-for="(part, key) in selectedCandidate.score_components" :key="key"><th>{{ componentNames[key] ?? key }}</th><td>{{ Math.round(part.weight * 100) }}%</td><td>{{ part.value != null ? part.value.toFixed(3) : 'No data' }}</td><td>{{ Math.round(part.confidence * 100) }}%</td></tr></tbody></table><p>Score = sum(weight * confidence * factor score) / sum(weight * confidence), over available factors. Relative scores depend on the candidate pool.</p></div>
-                <p v-if="selectedCandidate.final_score != null">Final score = 0.92 * composite + 0.08 * (1 - distance_km / 20015). Origin: {{ originCity.name }}.</p>
+                <p v-if="selectedCandidate.ranking_mode">Displayed factor score = 100 × saved {{selectedCandidate.ranking_mode}} similarity. Other factors and distance do not affect this order. The component weights below belong to the original Overall formula.</p>
+                <p v-if="selectedCandidate.final_score != null && !selectedCandidate.ranking_mode">Final score = 0.92 * composite + 0.08 * (1 - distance_km / 20015). Origin: {{ originCity.name }}.</p>
                 <dl><div><dt>Image similarity</dt><dd>{{ selectedCandidate.cosine != null ? selectedCandidate.cosine.toFixed(3) + ' cosine · model output' : 'Not applicable (no image retrieval)' }}</dd></div><div><dt>{{ rankingScore(selectedCandidate) != null ? 'Ranking score' : 'Evidence index' }}</dt><dd>{{ matchedAnalog.matchScore }} · uncalibrated heuristic, not a probability</dd></div><div><dt>Model assessment</dt><dd>{{ selectedCandidate.vote ? selectedCandidate.vote + (selectedCandidate.agreement != null ? ` (${Math.round(selectedCandidate.agreement * 100)}% agreement)` : '') : 'Not available' }}</dd></div><div><dt>Planetary source</dt><dd>{{ currentQuery()?.info.product || 'Product not provided' }}</dd></div><div><dt>Earth imagery source</dt><dd>Not provided in this result</dd></div><div><dt>Run</dt><dd>{{ runId }}</dd></div></dl>
                 <p v-if="selectedCandidate.reasoning?.reason">{{ selectedCandidate.reasoning.reason }}</p><p class="earth-muted">Results are model-generated proposals, not verified analogs.</p>
+                </template>
               </section>
             </div>
           </div>
         </Transition>
-        <div v-if="showLightingControls && isLunarLanding" class="lighting-settings-overlay" role="dialog" aria-label="Lunar lighting test dates" aria-modal="true" @keydown.esc="showLightingControls=false">
+        <div v-if="showLightingControls && supportsLunarLighting" class="lighting-settings-overlay" role="dialog" aria-label="Lunar lighting test dates" aria-modal="true" @keydown.esc="showLightingControls=false">
           <button class="close-lighting-settings" @click="showLightingControls=false">Close</button>
           <LunarLightingPanel :plan="lightingPlan" :busy="lightingBusy" :error="lightingError" :query-id="selectedQuery" :target-name="targetInfo.name" :lunar-time="lunarReferenceTime" :start-date="earthSearchStart" @search="searchLighting" />
         </div>
@@ -2329,6 +2435,17 @@ onBeforeUnmount(() => {
 .right-half:has(.region-filter) .results-drawer { top:135px; }
 .right-half:has(.region-filter) .no-accepted-results { top:135px; }
 @media (max-width:600px) { .right-half:has(.region-filter) .results-drawer { top:175px; } }
+.inspection-imagery-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; font-size:12px; color:#526078; }
+.inspection-imagery-controls button { border:1px solid #cbd5e1; border-radius:6px; padding:7px 10px; background:white; color:#172033; cursor:pointer; }
+.inspection-imagery-controls button.active { background:#172033; color:white; }
+.region-filter .history-control { display:flex; align-items:center; gap:7px; margin-top:8px; font-size:11px; }
+.history-control input { margin:0; }
+.right-half:has(.region-filter) .results-drawer { top:220px; }
+.candidate-reference-label { font-size:15px; font-weight:700; color:#6b4800; }
+.historical-evidence { padding:14px; border:1px solid #e4ca7c; background:#fffbeb; border-radius:10px; line-height:1.6; }
+.historical-evidence a { color:#1e40af; text-decoration:underline; }
+.earth-comparison figcaption small { display:block; font-size:11px; color:#64748b; line-height:1.5; overflow-wrap:anywhere; }
+.earth-comparison:not(.ilila-profiles) figure > img { object-fit:contain; }
 </style>
 
 <style scoped>

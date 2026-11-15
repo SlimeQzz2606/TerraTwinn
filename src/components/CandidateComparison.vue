@@ -4,6 +4,7 @@ import ElevationSurface from './ElevationSurface.vue'
 
 type Metric = 'ranking' | 'temperature' | 'slope' | 'roughness' | 'wind' | 'materials'
 interface Candidate {
+  factor_score?: number; ranking_mode?: string;
   rank: number; region: string; region_name?: string; admin1?: string; country?: string;
   composite?: number; final_score?: number; distance_km?: number | null;
   roughness?: { comparison?: { slope_p90_deg: number; roughness_rms_m: number; source: string; source_url: string } };
@@ -29,6 +30,17 @@ watch(() => [props.candidates.map(c=>c.region).join('|'), props.activeRegion], (
   }
 }, {immediate:true})
 const compared = computed(() => props.candidates.filter(c=>selected.value.includes(c.region)))
+interface WindEvidence {available:boolean;stats:{mean_speed_ms?:number;n_days?:number};source:string;source_url?:string;start?:string;end_exclusive?:string;note?:string}
+const windEvidence=ref<Record<string,WindEvidence|null>>({})
+const requestedWind=new Set<string>()
+async function loadWind(id:string) {
+  if(requestedWind.has(id))return
+  requestedWind.add(id)
+  let result:WindEvidence|null=null
+  try { const response=await fetch(`/api/analogs/wind/earth/${encodeURIComponent(id)}`);if(response.ok)result=await response.json() } catch { /* Unavailable stays explicit. */ }
+  windEvidence.value={...windEvidence.value,[id]:result}
+}
+watch([compared,metric],()=>{if(metric.value==='wind')compared.value.forEach(c=>loadWind(c.region))},{immediate:true})
 function toggle(id:string) {
   selected.value = selected.value.includes(id)
     ? selected.value.filter(v=>v!==id)
@@ -39,28 +51,28 @@ const label = (s:string) => s.replace(/_/g,' ').replace(/^./,c=>c.toUpperCase())
 const colors=['#2563eb','#0f766e','#b45309','#7c3aed','#be185d']
 const unit = computed(()=>({ranking:'/100',temperature:'°C',slope:'°',roughness:'m RMS',wind:'m/s',materials:''})[metric.value])
 const explanation = computed(()=>({
-  ranking:'Final saved ranking score, including the distance term when available. Higher scores rank ahead; this is not a probability.',
+  ranking:props.candidates.some(c=>c.ranking_mode)?'Single-factor similarity × 100. Other factors and distance do not contribute to this order. This is not a probability.':'Final saved ranking score, including the distance term when available. Higher scores rank ahead; this is not a probability.',
   temperature:'Regional MODIS land-surface temperature, averaged over 2018–2023 at about 1 km resolution. Day and night are separate observations, not daily minima or maxima. Planetary climate estimates use different methods and are not plotted as equivalent measurements.',
   slope:'Slope p90 on the common 30 m DEM grid, over a centered 240 m square. 90% of sampled slopes are below this value. Lower does not automatically mean a better terrain analog.',
   roughness:'Plane-residual RMS height on the common 30 m DEM grid, over a centered 240 m square. This describes resolved relief, not individual rocks.',
-  wind:'ERA5 regional mean 10 m wind speed. Reanalysis grid cells are about 28 km wide; these values do not describe gusts at the exact ROI.',
+  wind:'ERA5 regional 10 m wind, about 28 km grid cells: mean of the speed calculated from each day’s mean u/v components (2015-01-01 to 2020-06-30). This statistic smooths within-day changes; it is not mean hourly scalar speed, a gust maximum or a weather station at the exact ROI. Any estimated fallback retains its own source label.',
   materials:'Regional rock and mineral classes from maps or literature. These are categories, not soil composition percentages or laboratory measurements. Terrain descriptions describe the catalog location.',
 })[metric.value])
 function value(c:Candidate):number|null {
   let v:number|undefined
-  if(metric.value==='ranking') v=(c.final_score ?? c.composite) != null ? (c.final_score ?? c.composite)!*100 : undefined
+  if(metric.value==='ranking') v=(c.factor_score ?? c.final_score ?? c.composite) != null ? (c.factor_score ?? c.final_score ?? c.composite)!*100 : undefined
   if(metric.value==='temperature') v=temperaturePeriod.value==='day' ? c.environment?.lst_modis?.lst_day_mean_c : c.environment?.lst_modis?.lst_night_mean_c
   if(metric.value==='slope') v=c.roughness?.comparison?.slope_p90_deg
   if(metric.value==='roughness') v=c.roughness?.comparison?.roughness_rms_m
-  if(metric.value==='wind') v=c.environment?.wind_era5?.stats?.mean_speed_ms
+  if(metric.value==='wind') v=windEvidence.value[c.region]?.available ? windEvidence.value[c.region]?.stats.mean_speed_ms : c.environment?.wind_era5?.stats?.mean_speed_ms
   return v!=null&&Number.isFinite(v)?v:null
 }
 function source(c:Candidate) {
   if(metric.value==='temperature') return c.environment?.lst_modis?.source ?? 'Source unavailable'
-  if(metric.value==='wind') return c.environment?.wind_era5?.source ?? 'Source unavailable'
+  if(metric.value==='wind') return windEvidence.value[c.region]?.source ?? c.environment?.wind_era5?.source ?? 'Source unavailable'
   if(metric.value==='slope'||metric.value==='roughness') return `${c.roughness?.comparison?.source ?? 'No suitable DEM'} · 30 m grid / 240 m window`
   if(metric.value==='materials') return c.earth_environment?.lithology_provenance ?? 'No classification'
-  return 'Saved multi-factor ranking; not a new calculation'
+  return c.ranking_mode ? `Saved ${c.ranking_mode} similarity; other factors and distance excluded` : 'Saved multi-factor ranking; not a new calculation'
 }
 interface Grid { rows: number; cols: number; spacing_m: number; z_m: number[]; relief_m: number; native_shape: number[]; source: string }
 const grids = ref<Record<string, Grid | null>>({})
@@ -166,7 +178,7 @@ function exportCsv() {
         <p class="relief-note">Every panel uses the same colour range (0 to {{ reliefMax.toFixed(1) }} m above the lowest cell) and the same vertical exaggeration (×{{ reliefScale }}). Drag to rotate. Earth candidates use the common 30 m DEM grid (8×8 cells), so their surfaces are coarse; planetary targets use their native DEM resampled for display.</p>
       </div>
       <p v-if="metric==='slope'||metric==='roughness'" class="comparison-reference">{{reference!=null?`Dashed reference: ${targetName} · ${formatted(reference)}`:'No comparable local planetary DEM; no reference line is drawn.'}}</p>
-      <div class="comparison-table-wrap"><table><thead><tr><th>Location</th><th>Value</th><th>Source / scale</th></tr></thead><tbody><tr v-for="c in compared" :key="c.region"><th>{{name(c)}}<small>{{[c.admin1,c.country].filter(Boolean).join(', ')}}</small></th><td>{{formatted(value(c))}}</td><td>{{source(c)}}</td></tr></tbody></table></div>
+      <div class="comparison-table-wrap"><table><thead><tr><th>Location</th><th>Value</th><th>Source / scale</th></tr></thead><tbody><tr v-for="c in compared" :key="c.region"><th>{{name(c)}}<small>{{[c.admin1,c.country].filter(Boolean).join(', ')}}</small></th><td>{{metric==='wind' && !requestedWind.has(c.region) ? 'Loading wind…' : formatted(value(c))}}</td><td>{{source(c)}}<template v-if="metric==='wind' && windEvidence[c.region]"><br><span v-if="windEvidence[c.region]?.stats.n_days">{{windEvidence[c.region]?.stats.n_days}} daily samples · </span><a v-if="windEvidence[c.region]?.source_url" :href="windEvidence[c.region]?.source_url" target="_blank" rel="noopener noreferrer">Dataset and units</a><br>{{windEvidence[c.region]?.note}}</template></td></tr></tbody></table></div>
     </template>
     <template v-else>
       <div v-if="classes.length" class="comparison-table-wrap"><table class="materials-matrix"><caption>Presence in the reported regional classification; a dash means not reported, not proven absence.</caption><thead><tr><th>Location</th><th v-for="cls in classes" :key="cls">{{label(cls)}}</th></tr></thead><tbody><tr v-if="targetMaterials?.length"><th>{{targetName}} · target</th><td v-for="cls in classes" :key="cls">{{targetMaterials.includes(cls)?'Reported':'—'}}</td></tr><tr v-for="c in compared" :key="c.region"><th>{{name(c)}}</th><td v-for="cls in classes" :key="cls"><span :class="{present:c.earth_environment?.lithology?.includes(cls)}">{{c.earth_environment?.lithology?.includes(cls)?'Reported':'—'}}</span></td></tr></tbody></table></div>
